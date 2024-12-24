@@ -1,9 +1,8 @@
 import UIKit
 import LocalAuthentication
 import UniformTypeIdentifiers
-import ObjectivePGP
 
-class SettingsViewController: UIViewController, UIDocumentPickerDelegate {
+class SettingsViewController: UIViewController, UIDocumentPickerDelegate{
     
     private let textView = UITextView()
     private let userDefaultsKey = "publicPGPKey"
@@ -120,14 +119,14 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate {
             securityLabel.bottomAnchor.constraint(equalTo: view.layoutMarginsGuide.bottomAnchor, constant: -16),
             
             // Update button constraints for better spacing and alignment
-                editButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-                saveButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-                airDropButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-                privateKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
-                importButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
-                exportButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
-                makeKeyPairButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200)
-
+            editButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            saveButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            airDropButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            privateKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
+            importButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
+            exportButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
+            makeKeyPairButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200)
+            
         ])
     }
     
@@ -203,6 +202,33 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate {
     }
     
     private func performKeyExport(exportPublic: Bool, exportPrivate: Bool) {
+        // If exporting private key, require FaceID authentication
+        if exportPrivate {
+            let authContext = LAContext()
+            var error: NSError?
+            
+            if authContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+                authContext.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Authenticate to export your private PGP key") { [weak self] success, authError in
+                    DispatchQueue.main.async {
+                        if success {
+                            self?.proceedWithKeyExport(exportPublic: exportPublic, exportPrivate: exportPrivate)
+                        } else {
+                            self?.showAlert(title: "Authentication Failed",
+                                          message: "Could not verify your identity.")
+                        }
+                    }
+                }
+            } else {
+                showAlert(title: "Biometrics Not Available",
+                         message: "Your device does not support Face ID or Touch ID.")
+            }
+        } else {
+            // If only exporting public key, proceed without authentication
+            proceedWithKeyExport(exportPublic: exportPublic, exportPrivate: exportPrivate)
+        }
+    }
+
+    private func proceedWithKeyExport(exportPublic: Bool, exportPrivate: Bool) {
         do {
             // Get the app group container directory
             let fileManager = FileManager.default
@@ -289,32 +315,40 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate {
         present(documentPicker, animated: true, completion: nil)
     }
     
-    @objc private func makePGPKeyPair() {
-        promptForKeyDetails { name, email, passphrase in
-            do {
-                let uid = "\(name) <\(email)>"
-                
-                let key = KeyGenerator().generate(for: uid, passphrase: passphrase)
-                
-                let privateKeyData = try key.export(keyType: .secret)
-                let armoredPrivateKey = Armor.armored(privateKeyData, as: .secretKey)
-                let armoredPublicKey = Armor.armored(try key.export(keyType: .public), as: .publicKey)
-                
-                // Save private key to Keychain
-                try KeychainHelper.shared.save(key: "privatePGPKey", value: armoredPrivateKey)
-                
-                // Save public key to UserDefaults
-                UserDefaults.standard.set(armoredPublicKey, forKey: "publicPGPKey")
-                
-                // Update the TextView with the new public key
-                self.textView.text = armoredPublicKey
-                
-                self.showAlert(title: "Success", message: "PGP key pair generated successfully.")
-            } catch {
-                self.showAlert(title: "Error", message: "Failed to generate PGP key pair: \(error.localizedDescription)")
-            }
-        }
+    func jsEscaped(_ input: String) -> String {
+        // Very simple example; you could also
+        // replace backslashes, newlines, etc.
+        return input.replacingOccurrences(of: "'", with: "\\'")
     }
+    
+    @objc private func makePGPKeyPair() {
+           promptForKeyDetails { [weak self] name, email, passphrase in
+               guard let self = self else { return }
+               
+               Task {
+                   do {
+                       let (publicKey, privateKey) = try await PGPWebView.shared.makePGPKeyPair(
+                           name: name,
+                           email: email,
+                           passphrase: passphrase
+                       )
+                       
+                       // Save keys
+                       try KeychainHelper.shared.save(key: "privatePGPKey", value: privateKey)
+                       UserDefaults.standard.set(publicKey, forKey: self.userDefaultsKey)
+                       
+                       DispatchQueue.main.async {
+                           self.textView.text = publicKey
+                           self.showAlert(title: "Success", message: "PGP key pair generated successfully")
+                       }
+                   } catch {
+                       DispatchQueue.main.async {
+                           self.showAlert(title: "Error", message: "Failed to generate key pair: \(error.localizedDescription)")
+                       }
+                   }
+               }
+           }
+       }
     
     private func promptForKeyDetails(completion: @escaping (String, String, String) -> Void) {
         let alertController = UIAlertController(title: "Generate PGP Key Pair", message: "Enter your details to generate a PGP key pair.", preferredStyle: .alert)
@@ -335,9 +369,9 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate {
         // Add actions
         let generateAction = UIAlertAction(title: "Generate", style: .default) { _ in
             // Retrieve user input
-            guard let name = alertController.textFields?[0].text, !name.isEmpty,
-                  let email = alertController.textFields?[1].text, !email.isEmpty,
-                  let passphrase = alertController.textFields?[2].text, !passphrase.isEmpty else {
+            guard var name = alertController.textFields?[0].text, !name.isEmpty,
+                  var email = alertController.textFields?[1].text, !email.isEmpty,
+                  var passphrase = alertController.textFields?[2].text, !passphrase.isEmpty else {
                 self.showAlert(title: "Error", message: "All fields are required.")
                 return
             }

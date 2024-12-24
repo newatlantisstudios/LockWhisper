@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		179E17172D14B7EB0093CA33 /* ObjectivePGP in Frameworks */ = {isa = PBXBuildFile; productRef = 179E17162D14B7EB0093CA33 /* ObjectivePGP */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		170141BB2D122CB500D33198 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -31,6 +27,7 @@
 		170141A42D122CB400D33198 /* LockWhisper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LockWhisper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		170141BA2D122CB500D33198 /* LockWhisperTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LockWhisperTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		170141C42D122CB500D33198 /* LockWhisperUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LockWhisperUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		172AA00F2D16780D00A3D7B8 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -69,7 +66,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				179E17172D14B7EB0093CA33 /* ObjectivePGP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,6 +110,7 @@
 		179E17152D14B7EB0093CA33 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				172AA00F2D16780D00A3D7B8 /* WebKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -216,7 +213,6 @@
 			mainGroup = 1701419B2D122CB400D33198;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				179E17142D14B7780093CA33 /* XCRemoteSwiftPackageReference "ObjectivePGP" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 170141A52D122CB400D33198 /* Products */;
@@ -589,25 +585,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		179E17142D14B7780093CA33 /* XCRemoteSwiftPackageReference "ObjectivePGP" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/krzyzanowskim/ObjectivePGP";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		179E17162D14B7EB0093CA33 /* ObjectivePGP */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 179E17142D14B7780093CA33 /* XCRemoteSwiftPackageReference "ObjectivePGP" */;
-			productName = ObjectivePGP;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1701419C2D122CB400D33198 /* Project object */;
 }

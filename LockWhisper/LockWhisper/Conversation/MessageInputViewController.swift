@@ -1,5 +1,4 @@
 import UIKit
-import ObjectivePGP
 
 class MessageInputViewController: UIViewController {
     
@@ -137,70 +136,71 @@ class MessageInputViewController: UIViewController {
             return
         }
         
-        do {
-            guard let privateKey = try KeychainHelper.shared.get(key: "privatePGPKey") else {
-                showError(message: "Private key not found")
-                return
+        Task {
+            do {
+                guard let privateKey = try KeychainHelper.shared.get(key: "privatePGPKey") else {
+                    await MainActor.run {
+                        showError(message: "Private key not found")
+                    }
+                    return
+                }
+                
+                let isEncrypted = try await PGPWebView.shared.isKeyEncrypted(privateKey)
+                print("isEncrypted: \(isEncrypted)")
+                
+                await MainActor.run {
+                    if isEncrypted {
+                        showPassphrasePrompt(encryptedText: encryptedText)
+                    } else {
+                        decryptMessage(encryptedText: encryptedText, passphrase: nil)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    showError(message: error.localizedDescription)
+                }
             }
-            
-            let keyData = privateKey.data(using: .utf8)!
-            let key = try ObjectivePGP.readKeys(from: keyData).first!
-            
-            // Check if key is encrypted (needs passphrase)
-            if key.isEncryptedWithPassword {
-                showPassphrasePrompt(forKey: key, encryptedText: encryptedText)
-            } else {
-                // Decrypt without passphrase
-                decryptMessage(withKey: key, encryptedText: encryptedText, passphrase: nil)
-            }
-        } catch {
-            showError(message: error.localizedDescription)
         }
     }
     
-    private func showPassphrasePrompt(forKey key: Key, encryptedText: String) {
-        let passphraseAlert = UIAlertController(title: "Enter Passphrase", message: nil, preferredStyle: .alert)
-        passphraseAlert.addTextField { textField in
+    private func showPassphrasePrompt(encryptedText: String) {
+        let alert = UIAlertController(title: "Enter Passphrase", message: nil, preferredStyle: .alert)
+        alert.addTextField { textField in
             textField.isSecureTextEntry = true
             textField.placeholder = "Enter your private key passphrase"
         }
         
         let decryptAction = UIAlertAction(title: "Decrypt", style: .default) { [weak self] _ in
-            guard let passphrase = passphraseAlert.textFields?.first?.text else { return }
-            self?.decryptMessage(withKey: key, encryptedText: encryptedText, passphrase: passphrase)
+            guard let passphrase = alert.textFields?.first?.text else { return }
+            self?.decryptMessage(encryptedText: encryptedText, passphrase: passphrase)
         }
         
-        passphraseAlert.addAction(decryptAction)
-        passphraseAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(passphraseAlert, animated: true)
+        alert.addAction(decryptAction)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
     }
     
-    private func decryptMessage(withKey key: Key, encryptedText: String, passphrase: String?) {
-        do {
-            var verified: Int32 = 0
-            var decryptionError: NSError?
-            
-            let encryptedData = encryptedText.data(using: .utf8)!
-            let decryptedData = try ObjectivePGP.decrypt(encryptedData,
-                                                         verified: &verified,
-                                                         certifyWithRootKey: false,
-                                                         using: [key],
-                                                         passphraseForKey: { _ in
-                return passphrase
-            },
-                                                         decryptionError: &decryptionError)
-            
-            if let error = decryptionError {
-                throw error
+    private func decryptMessage(encryptedText: String, passphrase: String?) {
+        Task {
+            do {
+                guard let privateKey = try KeychainHelper.shared.get(key: "privatePGPKey") else {
+                    throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Private key not found"])
+                }
+                
+                let decryptedText = try await PGPWebView.shared.decrypt(encryptedText, withPrivateKey: privateKey, passphrase: passphrase)
+                
+                await MainActor.run {
+                    textView.text = decryptedText
+                }
+            } catch PGPError.needsPassphrase {
+                await MainActor.run {
+                    showPassphrasePrompt(encryptedText: encryptedText)
+                }
+            } catch {
+                await MainActor.run {
+                    showError(message: error.localizedDescription)
+                }
             }
-            
-            if let decryptedText = String(data: decryptedData, encoding: .utf8) {
-                textView.text = decryptedText
-            } else {
-                showError(message: "Could not decode decrypted data")
-            }
-        } catch {
-            showError(message: error.localizedDescription)
         }
     }
     
@@ -221,20 +221,24 @@ class MessageInputViewController: UIViewController {
             return
         }
         
-        do {
-            let messageData = messageText.data(using: .utf8)!
-            let publicKeyData = contact.publicKey.data(using: .utf8)!
-            let publicKey = try ObjectivePGP.readKeys(from: publicKeyData).first!
-            
-            let encryptedData = try ObjectivePGP.encrypt(messageData,
-                                                         addSignature: false,
-                                                         using: [publicKey])
-            
-            let armoredMessage = Armor.armored(encryptedData, as: .message)
-            textView.text = armoredMessage
-            
-        } catch {
-            showError(message: "Encryption error: \(error.localizedDescription)")
+        Task {
+            do {
+                print("Starting encryption")
+                print("Message text length:", messageText.count)
+                //print("Using public key:", contact.publicKey)
+                
+                let encryptedText = try await PGPWebView.shared.encrypt(messageText, withPublicKey: contact.publicKey)
+                print("Encryption succeeded, result length:", encryptedText.count)
+                
+                await MainActor.run {
+                    textView.text = encryptedText
+                }
+            } catch {
+                print("Encryption failed1:", error)
+                await MainActor.run {
+                    showError(message: "Encryption error: \(error.localizedDescription)")
+                }
+            }
         }
     }
     
@@ -244,138 +248,99 @@ class MessageInputViewController: UIViewController {
             return
         }
         
-        do {
-            guard let privateKey = try KeychainHelper.shared.get(key: "privatePGPKey") else {
-                showError(message: "Private key not found")
-                return
+        Task {
+            do {
+                guard let privateKey = try KeychainHelper.shared.get(key: "privatePGPKey") else {
+                    throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Private key not found"])
+                }
+                
+                let isEncrypted = try await PGPWebView.shared.isKeyEncrypted(privateKey)
+                
+                await MainActor.run {
+                    if isEncrypted {
+                        showPassphrasePromptAndAdd(encryptedText: encryptedText)
+                    } else {
+                        decryptMessageAndAdd(encryptedText: encryptedText, passphrase: nil)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    showError(message: error.localizedDescription)
+                }
             }
-            
-            let keyData = privateKey.data(using: .utf8)!
-            let key = try ObjectivePGP.readKeys(from: keyData).first!
-            
-            // Check if key is encrypted (needs passphrase)
-            if key.isEncryptedWithPassword {
-                showPassphrasePromptAndAdd(forKey: key, encryptedText: encryptedText)
-            } else {
-                // Decrypt without passphrase and add
-                decryptMessageAndAdd(withKey: key, encryptedText: encryptedText, passphrase: nil)
-            }
-        } catch {
-            showError(message: error.localizedDescription)
         }
     }
     
-    private func showPassphrasePromptAndAdd(forKey key: Key, encryptedText: String) {
-        let passphraseAlert = UIAlertController(title: "Enter Passphrase", message: nil, preferredStyle: .alert)
-        passphraseAlert.addTextField { textField in
+    private func showPassphrasePromptAndAdd(encryptedText: String) {
+        let alert = UIAlertController(title: "Enter Passphrase", message: nil, preferredStyle: .alert)
+        alert.addTextField { textField in
             textField.isSecureTextEntry = true
             textField.placeholder = "Enter your private key passphrase"
         }
         
         let decryptAction = UIAlertAction(title: "Decrypt and Add", style: .default) { [weak self] _ in
-            guard let passphrase = passphraseAlert.textFields?.first?.text else { return }
-            self?.decryptMessageAndAdd(withKey: key, encryptedText: encryptedText, passphrase: passphrase)
+            guard let passphrase = alert.textFields?.first?.text else { return }
+            self?.decryptMessageAndAdd(encryptedText: encryptedText, passphrase: passphrase)
         }
         
-        passphraseAlert.addAction(decryptAction)
-        passphraseAlert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(passphraseAlert, animated: true)
+        alert.addAction(decryptAction)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
     }
     
-    private func decryptMessageAndAdd(withKey key: Key, encryptedText: String, passphrase: String?) {
-        var verified: Int32 = 0
-        var decryptionError: NSError?
-        
-        let encryptedData = encryptedText.data(using: .utf8)!
-        let decryptedData: Data
-        let decryptedText: String
-        
-        // First try block: PGP Decryption
-        do {
-            decryptedData = try ObjectivePGP.decrypt(encryptedData,
-                                                     verified: &verified,
-                                                     certifyWithRootKey: false,
-                                                     using: [key],
-                                                     passphraseForKey: { _ in
-                return passphrase
-            },
-                                                     decryptionError: &decryptionError)
-            
-            if let error = decryptionError {
-                let errorMessage = error.localizedDescription
-                if errorMessage.contains("Incorrect key passphrase") {
-                    showError(message: "Incorrect passphrase. Please try again.")
-                } else if errorMessage.contains("No secret key") {
-                    showError(message: "No matching secret key found for decryption")
-                } else {
-                    showError(message: "PGP Decryption failed: \(errorMessage)")
-                }
-                return
-            }
-        } catch let pgpError as NSError {
-            if pgpError.domain == "ObjectivePGP" {
-                switch pgpError.code {
-                case -1:
-                    showError(message: "Invalid PGP message format")
-                case -2:
-                    showError(message: "Message is not PGP encrypted")
-                default:
-                    showError(message: "PGP Error: \(pgpError.localizedDescription)")
-                }
-            } else {
-                showError(message: "Decryption failed: \(pgpError.localizedDescription)")
-            }
-            return
-        }
-        
-        // Convert decrypted data to string
-        guard let decryptedString = String(data: decryptedData, encoding: .utf8) else {
-            showError(message: "Could not decode decrypted data")
-            return
-        }
-        decryptedText = decryptedString
-        
-        // Add to UserDefaults
-        guard let contact = self.contact else {
-            showError(message: "Contact not found")
-            return
-        }
-        
-        if var contactsData = UserDefaults.standard.data(forKey: "contacts") {
-            let decoder = JSONDecoder()
-            let encoder = JSONEncoder()
-            
+    private func decryptMessageAndAdd(encryptedText: String, passphrase: String?) {
+        Task {
             do {
-                var contacts = try decoder.decode([Contact].self, from: contactsData)
-                if let index = contacts.firstIndex(where: { $0.name == contact.name }) {
-                    contacts[index].messages.append(decryptedText)
-                    
-                    let dateFormatter = DateFormatter()
-                    dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                    contacts[index].messageDates.append(dateFormatter.string(from: Date()))
-                    
-                    do {
-                        contactsData = try encoder.encode(contacts)
-                        UserDefaults.standard.set(contactsData, forKey: "contacts")
-                        print("Saved messages:", contacts[index].messages)
-                        textView.text = decryptedText
-                        delegate?.messageWasAdded()
-                        dismiss(animated: true)
-                    } catch {
-                        showError(message: "Failed to save message: \(error.localizedDescription)")
-                        return
+                guard let privateKey = try KeychainHelper.shared.get(key: "privatePGPKey") else {
+                    throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Private key not found"])
+                }
+                
+                let decryptedText = try await PGPWebView.shared.decrypt(encryptedText, withPrivateKey: privateKey, passphrase: passphrase)
+                
+                guard let contact = self.contact else {
+                    throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Contact not found"])
+                }
+                
+                await MainActor.run {
+                    // Save to UserDefaults
+                    if var contactsData = UserDefaults.standard.data(forKey: "contacts") {
+                        let decoder = JSONDecoder()
+                        let encoder = JSONEncoder()
+                        
+                        do {
+                            var contacts = try decoder.decode([Contact].self, from: contactsData)
+                            if let index = contacts.firstIndex(where: { $0.name == contact.name }) {
+                                contacts[index].messages.append(decryptedText)
+                                
+                                let dateFormatter = DateFormatter()
+                                dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                                contacts[index].messageDates.append(dateFormatter.string(from: Date()))
+                                
+                                contactsData = try encoder.encode(contacts)
+                                UserDefaults.standard.set(contactsData, forKey: "contacts")
+                                print("Saved messages:", contacts[index].messages)
+                                self.textView.text = decryptedText
+                                self.delegate?.messageWasAdded()
+                                self.dismiss(animated: true)
+                            } else {
+                                self.showError(message: "Contact not found in saved contacts")
+                            }
+                        } catch {
+                            self.showError(message: "Failed to save message: \(error.localizedDescription)")
+                        }
+                    } else {
+                        self.showError(message: "No contacts data found")
                     }
-                } else {
-                    showError(message: "Contact not found in saved contacts")
-                    return
+                }
+            } catch PGPError.needsPassphrase {
+                await MainActor.run {
+                    self.showPassphrasePromptAndAdd(encryptedText: encryptedText)
                 }
             } catch {
-                showError(message: "Failed to load contacts: \(error.localizedDescription)")
-                return
+                await MainActor.run {
+                    self.showError(message: error.localizedDescription)
+                }
             }
-        } else {
-            showError(message: "No contacts data found")
-            return
         }
     }
     
