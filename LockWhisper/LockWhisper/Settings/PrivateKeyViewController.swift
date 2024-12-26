@@ -2,18 +2,16 @@ import UIKit
 import LocalAuthentication
 
 class PrivateKeyViewController: UIViewController {
-    
     private let privateTextView = UITextView()
     private let keychainKey = "privatePGPKey"
-    private let editButton = UIButton(type: .system)
-    private let saveButton = UIButton(type: .system)
+    private let stackView = UIStackView()
+    private let saveButton = StyledButton()
+    private let eraseButton = StyledButton()
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
         title = "Private Key"
         view.backgroundColor = .systemBackground
-        
         setupUI()
         loadPrivateKey()
     }
@@ -29,7 +27,7 @@ class PrivateKeyViewController: UIViewController {
         
         // TextView
         privateTextView.font = UIFont.systemFont(ofSize: 16)
-        privateTextView.isEditable = false
+        privateTextView.isEditable = true
         privateTextView.isScrollEnabled = true
         privateTextView.layer.borderColor = UIColor.systemGray.cgColor
         privateTextView.layer.borderWidth = 1
@@ -37,19 +35,26 @@ class PrivateKeyViewController: UIViewController {
         privateTextView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(privateTextView)
         
-        // Edit Button
-        editButton.setTitle("Edit", for: .normal)
-        editButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
-        editButton.addTarget(self, action: #selector(enableEditing), for: .touchUpInside)
-        editButton.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(editButton)
+        // Stack View
+        stackView.axis = .vertical
+        stackView.spacing = 20
+        stackView.alignment = .center
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stackView)
+        
+        // Erase Button
+        eraseButton.setTitle("Erase and Save", for: .normal)
+        eraseButton.setStyle(.warning)
+        eraseButton.addTarget(self, action: #selector(confirmErase), for: .touchUpInside)
         
         // Save Button
         saveButton.setTitle("Save to iOS keychain", for: .normal)
-        saveButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
-        saveButton.addTarget(self, action: #selector(savePrivateKey), for: .touchUpInside)
-        saveButton.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(saveButton)
+        saveButton.setStyle(.primary)
+        saveButton.addTarget(self, action: #selector(confirmSave), for: .touchUpInside)
+        
+        // Add buttons to stack view
+        stackView.addArrangedSubview(eraseButton)
+        stackView.addArrangedSubview(saveButton)
         
         // Constraints
         NSLayoutConstraint.activate([
@@ -63,11 +68,8 @@ class PrivateKeyViewController: UIViewController {
             privateTextView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             privateTextView.heightAnchor.constraint(equalToConstant: 150),
             
-            editButton.topAnchor.constraint(equalTo: privateTextView.bottomAnchor, constant: 20),
-            editButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -20),
-            
-            saveButton.topAnchor.constraint(equalTo: privateTextView.bottomAnchor, constant: 20),
-            saveButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            stackView.topAnchor.constraint(equalTo: privateTextView.bottomAnchor, constant: 30),
+            stackView.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
     }
     
@@ -83,12 +85,37 @@ class PrivateKeyViewController: UIViewController {
         }
     }
     
-    @objc private func enableEditing() {
-        privateTextView.isEditable = true
-        editButton.isEnabled = false
+    @objc private func confirmSave() {
+        let alert = UIAlertController(
+            title: "Confirm Save",
+            message: "Are you sure you want to save this private key to the iOS keychain?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+            self?.savePrivateKey()
+        })
+        
+        present(alert, animated: true)
     }
     
-    @objc private func savePrivateKey() {
+    @objc private func confirmErase() {
+        let alert = UIAlertController(
+            title: "Warning",
+            message: "This will erase the current key and save an empty value. Are you sure?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Erase", style: .destructive) { [weak self] _ in
+            self?.eraseAndSave()
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    private func savePrivateKey() {
         guard let text = privateTextView.text, !text.isEmpty else {
             showAlert(title: "Error", message: "Private key cannot be empty.")
             return
@@ -97,16 +124,24 @@ class PrivateKeyViewController: UIViewController {
         do {
             try KeychainHelper.shared.save(key: keychainKey, value: text)
             showAlert(title: "Saved", message: "Your private key has been securely saved.")
-            privateTextView.isEditable = false
-            editButton.isEnabled = true
         } catch {
             showAlert(title: "Error", message: "Failed to save the private key to the Keychain.")
         }
     }
     
+    private func eraseAndSave() {
+        privateTextView.text = ""
+        do {
+            try KeychainHelper.shared.save(key: keychainKey, value: "")
+            showAlert(title: "Erased", message: "Your private key has been erased and saved.")
+        } catch {
+            showAlert(title: "Error", message: "Failed to erase the private key.")
+        }
+    }
+    
     private func showAlert(title: String, message: String) {
         let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alertController.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-        present(alertController, animated: true, completion: nil)
+        alertController.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alertController, animated: true)
     }
 }

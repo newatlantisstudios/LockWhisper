@@ -6,7 +6,7 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate{
     
     private let textView = UITextView()
     private let userDefaultsKey = "publicPGPKey"
-    private let editButton = StyledButton()
+    private let eraseButton = StyledButton()
     private let saveButton = StyledButton()
     private let airDropButton = StyledButton()
     private let privateKeyButton = StyledButton()
@@ -35,7 +35,7 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate{
         
         // TextView
         textView.font = UIFont.systemFont(ofSize: 16)
-        textView.isEditable = false // Start as non-editable
+        textView.isEditable = true
         textView.isScrollEnabled = true
         textView.layer.borderColor = UIColor.systemGray.cgColor
         textView.layer.borderWidth = 1
@@ -45,14 +45,14 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate{
         
         // Add to layout/UI setup
         let securityLabel = UILabel()
-        securityLabel.text = "⚠️ Without Advanced Data Protection (ADP) enabled in iOS Settings > Apple ID > iCloud, Apple can access your PGP keys and encrypted messages through your iCloud backup. Enable ADP for end-to-end encryption."
+        securityLabel.text = "⚠️ Without Advanced Data Protection (ADP) enabled in iOS Settings > Apple ID > iCloud, Apple can access your PGP keys and encrypted messages through your iCloud backup. Enable ADP for end-to-end encryption.⚠️"
         securityLabel.textColor = .systemRed
         securityLabel.font = .preferredFont(forTextStyle: .footnote)
         securityLabel.numberOfLines = 0
         securityLabel.textAlignment = .center
         
         // Buttons
-        configureButton(editButton, title: "Edit", action: #selector(enableEditing), style: .secondary)
+        configureButton(eraseButton, title: "Erase and Save", action: #selector(erasePGPKey), style: .warning)
         configureButton(saveButton, title: "Save", action: #selector(savePGPKey))
         configureButton(airDropButton, title: "AirDrop", action: #selector(shareViaAirDrop), style: .secondary)
         configureButton(privateKeyButton, title: "Private PGP Key", action: #selector(showPrivateKeyView))
@@ -61,7 +61,7 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate{
         configureButton(exportButton, title: "Export PGP Keys", action: #selector(exportPGPKeys))
         
         // Add buttons to the view
-        view.addSubview(editButton)
+        view.addSubview(eraseButton)
         view.addSubview(saveButton)
         view.addSubview(airDropButton)
         view.addSubview(privateKeyButton)
@@ -73,60 +73,51 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate{
         securityLabel.translatesAutoresizingMaskIntoConstraints = false
         
         // Constraints
+        // Constraints
         NSLayoutConstraint.activate([
-            // Label constraints
-            label.centerXAnchor.constraint(equalTo: view.centerXAnchor), // Center horizontally
+            // Label and TextView constraints remain the same
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             label.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
             label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             
-            // TextView constraints
             textView.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 10),
             textView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             textView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             textView.heightAnchor.constraint(equalToConstant: 150),
             
-            // Edit Button constraints
-            editButton.topAnchor.constraint(equalTo: textView.bottomAnchor, constant: 20),
-            editButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -20),
+            // Stack buttons vertically
+            eraseButton.topAnchor.constraint(equalTo: textView.bottomAnchor, constant: 20),
+            eraseButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            eraseButton.widthAnchor.constraint(equalToConstant: 200),
             
-            // Save Button constraints
-            saveButton.topAnchor.constraint(equalTo: textView.bottomAnchor, constant: 20),
+            saveButton.topAnchor.constraint(equalTo: eraseButton.bottomAnchor, constant: 20),
             saveButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            saveButton.widthAnchor.constraint(equalToConstant: 200),
             
-            // AirDrop Button constraints
-            airDropButton.topAnchor.constraint(equalTo: textView.bottomAnchor, constant: 20),
-            airDropButton.leadingAnchor.constraint(equalTo: saveButton.trailingAnchor, constant: 20),
+            airDropButton.topAnchor.constraint(equalTo: saveButton.bottomAnchor, constant: 20),
+            airDropButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            airDropButton.widthAnchor.constraint(equalToConstant: 200),
             
-            // Private Key Button constraints
             privateKeyButton.topAnchor.constraint(equalTo: airDropButton.bottomAnchor, constant: 20),
             privateKeyButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            privateKeyButton.widthAnchor.constraint(equalToConstant: 200),
             
-            // Import Button constraints
             importButton.topAnchor.constraint(equalTo: privateKeyButton.bottomAnchor, constant: 20),
             importButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            importButton.widthAnchor.constraint(equalToConstant: 200),
             
-            // Export Button constraints - now below importButton
             exportButton.topAnchor.constraint(equalTo: importButton.bottomAnchor, constant: 20),
             exportButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            exportButton.widthAnchor.constraint(equalToConstant: 200),
             
-            // Make Key Pair Button constraints - now below exportButton
             makeKeyPairButton.topAnchor.constraint(equalTo: exportButton.bottomAnchor, constant: 20),
             makeKeyPairButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            makeKeyPairButton.widthAnchor.constraint(equalToConstant: 200),
             
             securityLabel.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
             securityLabel.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
-            securityLabel.bottomAnchor.constraint(equalTo: view.layoutMarginsGuide.bottomAnchor, constant: -16),
-            
-            // Update button constraints for better spacing and alignment
-            editButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            saveButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            airDropButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
-            privateKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
-            importButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
-            exportButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
-            makeKeyPairButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 200)
-            
+            securityLabel.bottomAnchor.constraint(equalTo: view.layoutMarginsGuide.bottomAnchor, constant: -16)
         ])
     }
     
@@ -135,11 +126,6 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate{
         button.addTarget(self, action: action, for: .touchUpInside)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.setStyle(style)
-    }
-    
-    @objc private func enableEditing() {
-        textView.isEditable = true // Enable editing
-        editButton.isEnabled = false // Disable Edit Button
     }
     
     private func loadPGPKey() {
@@ -153,12 +139,33 @@ class SettingsViewController: UIViewController, UIDocumentPickerDelegate{
     
     @objc private func savePGPKey() {
         guard let text = textView.text else { return }
-        UserDefaults.standard.set(text, forKey: userDefaultsKey)
-        showAlert(title: "Saved", message: "Your PGP key has been saved locally.")
         
-        // Disable editing and re-enable Edit Button
-        textView.isEditable = false
-        editButton.isEnabled = true
+        let alert = UIAlertController(title: "Save PGP Key",
+                                    message: "Are you sure you want to save this PGP key? This will overwrite any existing key.",
+                                    preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+            UserDefaults.standard.set(text, forKey: self?.userDefaultsKey ?? "")
+            self?.showAlert(title: "Success", message: "Your PGP key has been saved locally.")
+        })
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+    
+    @objc private func erasePGPKey() {
+        let alert = UIAlertController(title: "Erase PGP Key",
+                                    message: "Are you sure you want to erase your public PGP key? This action cannot be undone.",
+                                    preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: "Erase", style: .destructive) { [weak self] _ in
+            UserDefaults.standard.removeObject(forKey: self?.userDefaultsKey ?? "")
+            self?.textView.text = "No PGP key found."
+            self?.showAlert(title: "Success", message: "Your public PGP key has been erased.")
+        })
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
     }
     
     @objc private func exportPGPKeys() {
