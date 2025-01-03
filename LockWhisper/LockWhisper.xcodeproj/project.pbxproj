@@ -51,11 +51,15 @@
 		};
 		170141BD2D122CB500D33198 /* LockWhisperTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = LockWhisperTests;
 			sourceTree = "<group>";
 		};
 		170141C72D122CB500D33198 /* LockWhisperUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = LockWhisperUITests;
 			sourceTree = "<group>";
 		};
@@ -212,8 +216,6 @@
 			);
 			mainGroup = 1701419B2D122CB400D33198;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 170141A52D122CB400D33198 /* Products */;
 			projectDirPath = "";
