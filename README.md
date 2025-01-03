@@ -13,6 +13,8 @@ Clean, intuitive iOS-native interface<br>
 
 This open-source project aims to make PGP encryption accessible to iOS users while following Apple's security best practices and design guidelines.
 
+App Store Link - https://apps.apple.com/us/app/lockwhisper/id6739545636
+
 ![Simulator Screenshot - iPhone 16 Pro Max - 2024-12-20 at 02 10 52](https://github.com/user-attachments/assets/61a48bda-d27c-4504-bf25-f533d103355a)
 ![Simulator Screenshot - iPhone 16 Pro Max - 2024-12-20 at 02 10 58](https://github.com/user-attachments/assets/c427a74d-f2d4-4b4a-afe9-a76a561dad27)
 ![Simulator Screenshot - iPhone 16 Pro Max - 2024-12-20 at 02 11 02](https://github.com/user-attachments/assets/ebfe8a76-f862-4cb7-8248-a13b93057b8d)
