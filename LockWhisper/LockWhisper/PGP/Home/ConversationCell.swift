@@ -41,7 +41,7 @@ class ConversationCell: UITableViewCell {
         ])
     }
     
-    func configure(with contact: Contact) {
+    func configure(with contact: ContactPGP) {
         usernameLabel.text = contact.name
         lastMessageLabel.text = contact.messages.last ?? "No messages"
     }

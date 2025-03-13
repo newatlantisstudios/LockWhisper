@@ -34,12 +34,14 @@ class ConversationsViewController: UIViewController {
     }
     
     private func setupNavigationBar() {
-        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addButtonTapped))
-        navigationItem.leftBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "gear"), style: .plain, target: self, action: #selector(settingsButtonTapped))
+        let gearButton = UIBarButtonItem(image: UIImage(systemName: "gear"), style: .plain, target: self, action: #selector(settingsButtonTapped))
+        let addButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addButtonTapped))
+        // The first item in rightBarButtonItems is placed at the far right.
+        navigationItem.rightBarButtonItems = [gearButton, addButton]
     }
     
     @objc private func settingsButtonTapped() {
-        let settingsViewController = SettingsViewController()
+        let settingsViewController = PGPSettingsViewController()
         navigationController?.pushViewController(settingsViewController, animated: true)
     }
     

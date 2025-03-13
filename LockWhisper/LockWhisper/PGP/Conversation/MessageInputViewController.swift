@@ -2,7 +2,7 @@ import UIKit
 
 class MessageInputViewController: UIViewController {
     
-    var contact: Contact?
+    var contact: ContactPGP?
     weak var delegate: MessageInputDelegate?
     
     private let titleLabel: UILabel = {
@@ -53,6 +53,16 @@ class MessageInputViewController: UIViewController {
         return button
     }()
     
+    private let addPlainTextButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Add Plain Text", for: .normal)
+        button.backgroundColor = .systemOrange
+        button.setTitleColor(.white, for: .normal)
+        button.layer.cornerRadius = 8
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
@@ -66,9 +76,10 @@ class MessageInputViewController: UIViewController {
         view.addSubview(decryptButton)
         view.addSubview(decryptAndAddButton)
         view.addSubview(encryptButton)
-        
+        view.addSubview(addPlainTextButton)  // <-- add here
+
         updateInterfaceColors()
-        
+
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
             titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
@@ -92,7 +103,12 @@ class MessageInputViewController: UIViewController {
             encryptButton.topAnchor.constraint(equalTo: decryptAndAddButton.bottomAnchor, constant: 12),
             encryptButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             encryptButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            encryptButton.heightAnchor.constraint(equalToConstant: 44)
+            encryptButton.heightAnchor.constraint(equalToConstant: 44),
+            
+            addPlainTextButton.topAnchor.constraint(equalTo: encryptButton.bottomAnchor, constant: 12),
+            addPlainTextButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            addPlainTextButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            addPlainTextButton.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
     
@@ -100,6 +116,7 @@ class MessageInputViewController: UIViewController {
         decryptButton.addTarget(self, action: #selector(decryptTapped), for: .touchUpInside)
         decryptAndAddButton.addTarget(self, action: #selector(decryptAndAddTapped), for: .touchUpInside)
         encryptButton.addTarget(self, action: #selector(encryptTapped), for: .touchUpInside)
+        addPlainTextButton.addTarget(self, action: #selector(addPlainTextTapped), for: .touchUpInside)
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -129,6 +146,61 @@ class MessageInputViewController: UIViewController {
         decryptAndAddButton.setTitleColor(.white, for: .normal)
         encryptButton.setTitleColor(.white, for: .normal)
     }
+    
+    @objc private func addPlainTextTapped() {
+        guard let plainText = textView.text, !plainText.isEmpty else {
+            showError(message: "Please enter text to add")
+            return
+        }
+        
+        guard let contact = self.contact else {
+            showError(message: "Contact not found")
+            return
+        }
+        
+        Task {
+            if var contactsData = UserDefaults.standard.data(forKey: "contacts") {
+                let decoder = JSONDecoder()
+                let encoder = JSONEncoder()
+                
+                do {
+                    var contacts = try decoder.decode([ContactPGP].self, from: contactsData)
+                    if let index = contacts.firstIndex(where: { $0.name == contact.name }) {
+                        // Append the plain text message
+                        contacts[index].messages.append(plainText)
+                        
+                        // Append the current date as a string
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                        contacts[index].messageDates.append(dateFormatter.string(from: Date()))
+                        
+                        contactsData = try encoder.encode(contacts)
+                        UserDefaults.standard.set(contactsData, forKey: "contacts")
+                        
+                        print("Saved plain text message: \(plainText)")
+                        
+                        await MainActor.run {
+                            self.delegate?.messageWasAdded()
+                            self.dismiss(animated: true)
+                        }
+                    } else {
+                        await MainActor.run {
+                            self.showError(message: "Contact not found in saved contacts")
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.showError(message: "Failed to save message: \(error.localizedDescription)")
+                    }
+                }
+            } else {
+                await MainActor.run {
+                    self.showError(message: "No contacts data found")
+                }
+            }
+        }
+    }
+
     
     @objc private func decryptTapped() {
         guard let encryptedText = textView.text, !encryptedText.isEmpty else {
@@ -308,7 +380,7 @@ class MessageInputViewController: UIViewController {
                         let encoder = JSONEncoder()
                         
                         do {
-                            var contacts = try decoder.decode([Contact].self, from: contactsData)
+                            var contacts = try decoder.decode([ContactPGP].self, from: contactsData)
                             if let index = contacts.firstIndex(where: { $0.name == contact.name }) {
                                 contacts[index].messages.append(decryptedText)
                                 

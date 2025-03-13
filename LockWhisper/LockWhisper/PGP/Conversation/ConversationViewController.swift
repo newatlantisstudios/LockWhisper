@@ -5,13 +5,13 @@ protocol MessageInputDelegate: AnyObject {
 }
 
 protocol ContactInfoDelegate: AnyObject {
-    func contactDidUpdate(_ contact: Contact)
+    func contactDidUpdate(_ contact: ContactPGP)
 }
 
 extension ConversationViewController: MessageInputDelegate {
     func messageWasAdded() {
         if let contactsData = UserDefaults.standard.data(forKey: "contacts"),
-           let contacts = try? JSONDecoder().decode([Contact].self, from: contactsData),
+           let contacts = try? JSONDecoder().decode([ContactPGP].self, from: contactsData),
            let updatedContact = contacts.first(where: { $0.name == contact.name }) {
             // Update the local contact property with fresh data
             self.contact = updatedContact
@@ -21,7 +21,7 @@ extension ConversationViewController: MessageInputDelegate {
 }
 
 extension ConversationViewController: ContactInfoDelegate {
-    func contactDidUpdate(_ contact: Contact) {
+    func contactDidUpdate(_ contact: ContactPGP) {
         self.contact = contact
         title = contact.name
     }
@@ -29,11 +29,11 @@ extension ConversationViewController: ContactInfoDelegate {
 
 class ConversationViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
-    private var contact: Contact
+    private var contact: ContactPGP
     private var tableView = UITableView()
     
     // Add the initializer
-    init(contact: Contact) {
+    init(contact: ContactPGP) {
         self.contact = contact
         super.init(nibName: nil, bundle: nil)
     }
@@ -49,6 +49,17 @@ class ConversationViewController: UIViewController, UITableViewDelegate, UITable
         view.backgroundColor = .white
         setupTableView()
         setupNavigationItems()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // Refresh the local contact copy from persistent storage.
+        if let updatedContact = UserDefaults.standard.contacts.first(where: { $0.name == contact.name }) {
+            self.contact = updatedContact
+            // Update any UI elements if necessary.
+            // For example, if you display notes somewhere, reload that part of the UI.
+        }
     }
     
     // MARK: - Setup TableView
@@ -72,41 +83,49 @@ class ConversationViewController: UIViewController, UITableViewDelegate, UITable
     }
     
     // MARK: - Setup Buttons
-    private func setupNavigationItems() {
-        let messageImage = UIImage(named: "addMessage")?.withRenderingMode(.alwaysTemplate)
-        let infoImage = UIImage(named: "info")?.withRenderingMode(.alwaysTemplate)
-        
-        let messageButton = UIBarButtonItem(
-            image: messageImage,
-            style: .plain,
-            target: self,
-            action: #selector(messageButtonTapped)
-        )
-        messageButton.imageInsets = UIEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
-        
-        let infoButton = UIBarButtonItem(
-            image: infoImage,
-            style: .plain,
-            target: self,
-            action: #selector(infoButtonTapped)
-        )
-        infoButton.imageInsets = UIEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
-        
-        navigationItem.rightBarButtonItems = [infoButton, messageButton]
-    }
-
-    private func createBarButton(imageName: String, size: CGSize) -> UIBarButtonItem {
-        let button = UIButton(frame: CGRect(origin: .zero, size: size))
-        button.setImage(UIImage(named: imageName), for: .normal)
-        button.imageView?.contentMode = .scaleAspectFit
-        
-        if imageName == "addMessage" {
-            button.addTarget(self, action: #selector(messageButtonTapped), for: .touchUpInside)
-        } else {
-            button.addTarget(self, action: #selector(infoButtonTapped), for: .touchUpInside)
+    
+    // Helper method to create a bar button of consistent size.
+    private func createBarButton(imageName: String, action: Selector) -> UIBarButtonItem {
+        let button = UIButton(type: .system)
+        if let image = UIImage(named: imageName)?.withRenderingMode(.alwaysTemplate) {
+            button.setImage(image, for: .normal)
         }
         
-        return UIBarButtonItem(customView: button)
+        // Set a fixed frame or use constraints for a consistent size.
+        button.frame = CGRect(x: 0, y: 0, width: 24, height: 24)
+        button.imageView?.contentMode = .scaleAspectFit
+        button.tintColor = .label // or whatever tint you prefer
+        button.addTarget(self, action: action, for: .touchUpInside)
+        
+        // Wrap it in a UIBarButtonItem
+        let barButtonItem = UIBarButtonItem(customView: button)
+        
+        // Optionally use Auto Layout constraints for an even more robust approach:
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 24),
+            button.heightAnchor.constraint(equalToConstant: 24)
+        ])
+        
+        return barButtonItem
+    }
+    
+    // MARK: - Setup Navigation Items
+    private func setupNavigationItems() {
+        // Create each bar button with the same sizing approach.
+        let messageButton = createBarButton(imageName: "addMessage",
+                                            action: #selector(messageButtonTapped))
+        let infoButton = createBarButton(imageName: "info",
+                                         action: #selector(infoButtonTapped))
+        let notesButton = createBarButton(imageName: "notes",
+                                          action: #selector(notesButtonTapped))
+        
+        navigationItem.rightBarButtonItems = [infoButton, messageButton, notesButton]
+    }
+
+    @objc private func notesButtonTapped() {
+        let notesVC = NotesViewController(contact: contact)
+        navigationController?.pushViewController(notesVC, animated: true)
     }
     
     @objc private func infoButtonTapped() {

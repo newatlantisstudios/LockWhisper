@@ -1,7 +1,7 @@
 import UIKit
 
 class ContactInfoViewController: UIViewController {
-    private var contact: Contact
+    private var contact: ContactPGP
     weak var delegate: ContactInfoDelegate?
     
     private let nicknameLabel: UILabel = {
@@ -53,7 +53,7 @@ class ContactInfoViewController: UIViewController {
         return button
     }()
     
-    init(contact: Contact) {
+    init(contact: ContactPGP) {
         self.contact = contact
         super.init(nibName: nil, bundle: nil)
     }
@@ -141,7 +141,7 @@ class ContactInfoViewController: UIViewController {
     
     @objc private func saveNicknameTapped() {
         if let contactsData = UserDefaults.standard.data(forKey: "contacts"),
-           var contacts = try? JSONDecoder().decode([Contact].self, from: contactsData),
+           var contacts = try? JSONDecoder().decode([ContactPGP].self, from: contactsData),
            let index = contacts.firstIndex(where: { $0.name == contact.name }) {
             contacts[index].name = nicknameTextView.text
             if let encodedData = try? JSONEncoder().encode(contacts) {
@@ -155,7 +155,7 @@ class ContactInfoViewController: UIViewController {
     
     @objc private func savePublicKeyTapped() {
         if let contactsData = UserDefaults.standard.data(forKey: "contacts"),
-           var contacts = try? JSONDecoder().decode([Contact].self, from: contactsData),
+           var contacts = try? JSONDecoder().decode([ContactPGP].self, from: contactsData),
            let index = contacts.firstIndex(where: { $0.name == contact.name }) {
             contacts[index].publicKey = publicKeyTextView.text
             if let encodedData = try? JSONEncoder().encode(contacts) {

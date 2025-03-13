@@ -1,19 +1,45 @@
 import UIKit
 import UniformTypeIdentifiers
 
-struct Contact: Codable {
+struct ContactPGP: Codable {
+    var id: UUID
     var name: String
     var publicKey: String
     var messages: [String]
     var messageDates: [String]
-    
-    init(name: String, publicKey: String, messages: [String] = [], messageDates: [String] = []) {
+    var notes: String?
+
+    // Updated initializer with an auto-generated id by default.
+    init(id: UUID = UUID(), name: String, publicKey: String, messages: [String] = [], messageDates: [String] = [], notes: String? = nil) {
+        self.id = id
         self.name = name
         self.publicKey = publicKey
         self.messages = messages
         self.messageDates = messageDates
+        self.notes = notes
+    }
+    
+    // Custom decoding to handle old conversations that might be missing an id.
+    private enum CodingKeys: String, CodingKey {
+        case id, name, publicKey, messages, messageDates, notes
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // If there's no id present, generate one.
+        if let id = try? container.decode(UUID.self, forKey: .id) {
+            self.id = id
+        } else {
+            self.id = UUID()
+        }
+        self.name = try container.decode(String.self, forKey: .name)
+        self.publicKey = try container.decode(String.self, forKey: .publicKey)
+        self.messages = try container.decode([String].self, forKey: .messages)
+        self.messageDates = try container.decode([String].self, forKey: .messageDates)
+        self.notes = try container.decodeIfPresent(String.self, forKey: .notes)
     }
 }
+
 
 protocol AddConversationDelegate: AnyObject {
     func didAddNewConversation()
@@ -144,7 +170,7 @@ class AddConversationViewController: UIViewController {
     }
     
     private func addConversation(name: String) {
-        let contact = Contact(name: name,
+        let contact = ContactPGP(name: name,
                              publicKey: publicKeyTextView.text,
                              messages: [],
                              messageDates: [])
@@ -179,14 +205,24 @@ extension AddConversationViewController: UIDocumentPickerDelegate {
 
 // MARK: - UserDefaults Extension
 extension UserDefaults {
-    var contacts: [Contact] {
+    var contacts: [ContactPGP] {
         get {
-            guard let data = UserDefaults.standard.data(forKey: "contacts") else { return [] }
-            return (try? JSONDecoder().decode([Contact].self, from: data)) ?? []
+            guard let data = self.data(forKey: "contacts") else { return [] }
+            return (try? JSONDecoder().decode([ContactPGP].self, from: data)) ?? []
         }
         set {
-            let data = try? JSONEncoder().encode(newValue)
-            UserDefaults.standard.set(data, forKey: "contacts")
+            if let data = try? JSONEncoder().encode(newValue) {
+                self.set(data, forKey: "contacts")
+            }
+        }
+    }
+    
+    func migrateContactsIfNeeded() {
+        var contacts = self.contacts
+        // This will trigger the custom decoder in Contact which assigns IDs if missing.
+        if !contacts.isEmpty {
+            self.contacts = contacts
         }
     }
 }
+
