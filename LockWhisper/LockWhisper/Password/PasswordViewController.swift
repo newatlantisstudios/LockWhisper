@@ -1,8 +1,9 @@
 import UIKit
+import CryptoKit
 
 // MARK: - Model
 
-struct PasswordEntry {
+struct PasswordEntry: Codable {
     var title: String
     var password: String
 }
@@ -12,10 +13,8 @@ struct PasswordEntry {
 class PasswordViewController: UIViewController {
     
     // Data source using the model.
-    var passwords: [PasswordEntry] = [
-        PasswordEntry(title: "Email", password: "emailPass123"),
-        PasswordEntry(title: "Bank", password: "bankPass456")
-    ]
+    var passwords: [PasswordEntry] = []
+    private let passwordsKey = "savedPasswords"
     
     lazy var tableView: UITableView = {
         let tv = UITableView()
@@ -32,6 +31,7 @@ class PasswordViewController: UIViewController {
         title = "Passwords"
         setupNavigationBar()
         setupTableView()
+        loadPasswords()
     }
     
     private func setupNavigationBar() {
@@ -59,6 +59,49 @@ class PasswordViewController: UIViewController {
         // No pre-filled data means we are in "add" mode.
         navigationController?.pushViewController(detailVC, animated: true)
     }
+    
+    // MARK: - Data Persistence with Encryption
+    
+    private func loadPasswords() {
+        if let data = UserDefaults.standard.data(forKey: passwordsKey) {
+            do {
+                let decoder = JSONDecoder()
+                
+                // Try to decrypt if the data is encrypted
+                if PasswordEncryptionManager.shared.isEncryptedData(data) {
+                    let decryptedData = try PasswordEncryptionManager.shared.decryptData(data)
+                    passwords = try decoder.decode([PasswordEntry].self, from: decryptedData)
+                } else {
+                    // Handle legacy unencrypted data
+                    if let savedPasswords = try? decoder.decode([PasswordEntry].self, from: data) {
+                        passwords = savedPasswords
+                    }
+                }
+            } catch {
+                print("Failed to load passwords: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func savePasswords() {
+        let encoder = JSONEncoder()
+        do {
+            let encodedData = try encoder.encode(passwords)
+            
+            // Encrypt the data
+            let encryptedData = try PasswordEncryptionManager.shared.encryptData(encodedData)
+            
+            // Save the encrypted data
+            UserDefaults.standard.set(encryptedData, forKey: passwordsKey)
+        } catch {
+            print("Error saving passwords: \(error.localizedDescription)")
+            
+            // Fallback to unencrypted storage if encryption fails
+            if let encodedData = try? encoder.encode(passwords) {
+                UserDefaults.standard.set(encodedData, forKey: passwordsKey)
+            }
+        }
+    }
 }
 
 // MARK: - UITableViewDataSource & Delegate
@@ -85,6 +128,15 @@ extension PasswordViewController: UITableViewDataSource, UITableViewDelegate {
         detailVC.delegate = self
         navigationController?.pushViewController(detailVC, animated: true)
     }
+    
+    // Add swipe-to-delete functionality
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            passwords.remove(at: indexPath.row)
+            savePasswords() // Save changes after deleting
+            tableView.deleteRows(at: [indexPath], with: .automatic)
+        }
+    }
 }
 
 // MARK: - PasswordDetailViewControllerDelegate
@@ -98,6 +150,7 @@ extension PasswordViewController: PasswordDetailViewControllerDelegate {
             // Add new entry.
             passwords.append(entry)
         }
+        savePasswords() // Save changes after adding/editing
         tableView.reloadData()
     }
 }

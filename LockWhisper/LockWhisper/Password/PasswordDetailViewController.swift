@@ -12,7 +12,7 @@ class PasswordDetailViewController: UIViewController {
     
     weak var delegate: PasswordDetailViewControllerDelegate?
     
-    // When nil, we’re adding a new password; when non-nil, we’re editing.
+    // When nil, we're adding a new password; when non-nil, we're editing.
     var passwordEntry: PasswordEntry?
     // Holds the index of the entry if in edit mode.
     var entryIndex: Int?
@@ -31,7 +31,16 @@ class PasswordDetailViewController: UIViewController {
         tf.placeholder = "Password"
         tf.borderStyle = .roundedRect
         tf.translatesAutoresizingMaskIntoConstraints = false
+        tf.isSecureTextEntry = true // Show dots instead of actual characters
         return tf
+    }()
+    
+    // Toggle button to show/hide password
+    let togglePasswordButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Show", for: .normal)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
     }()
     
     override func viewDidLoad() {
@@ -46,6 +55,9 @@ class PasswordDetailViewController: UIViewController {
             titleTextField.text = entry.title
             passwordTextField.text = entry.password
         }
+        
+        // Add target to toggle password visibility
+        togglePasswordButton.addTarget(self, action: #selector(togglePasswordVisibility), for: .touchUpInside)
     }
     
     private func setupNavigationBar() {
@@ -60,6 +72,7 @@ class PasswordDetailViewController: UIViewController {
     private func setupUI() {
         view.addSubview(titleTextField)
         view.addSubview(passwordTextField)
+        view.addSubview(togglePasswordButton)
         
         NSLayoutConstraint.activate([
             titleTextField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
@@ -69,9 +82,18 @@ class PasswordDetailViewController: UIViewController {
             
             passwordTextField.topAnchor.constraint(equalTo: titleTextField.bottomAnchor, constant: 20),
             passwordTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            passwordTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            passwordTextField.heightAnchor.constraint(equalToConstant: 44)
+            passwordTextField.trailingAnchor.constraint(equalTo: togglePasswordButton.leadingAnchor, constant: -8),
+            passwordTextField.heightAnchor.constraint(equalToConstant: 44),
+            
+            togglePasswordButton.centerYAnchor.constraint(equalTo: passwordTextField.centerYAnchor),
+            togglePasswordButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            togglePasswordButton.widthAnchor.constraint(equalToConstant: 60)
         ])
+    }
+    
+    @objc private func togglePasswordVisibility() {
+        passwordTextField.isSecureTextEntry.toggle()
+        togglePasswordButton.setTitle(passwordTextField.isSecureTextEntry ? "Show" : "Hide", for: .normal)
     }
     
     @objc private func saveTapped() {
