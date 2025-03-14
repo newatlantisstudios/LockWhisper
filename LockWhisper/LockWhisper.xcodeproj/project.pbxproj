@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		17741DBA2D66FF3200AF7D62 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17741DB92D66FF3200AF7D62 /* StoreKit.framework */; };
+		179771012D83DA7700D106F0 /* ZipArchive in Frameworks */ = {isa = PBXBuildFile; productRef = 179771002D83DA7700D106F0 /* ZipArchive */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,6 +73,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				17741DBA2D66FF3200AF7D62 /* StoreKit.framework in Frameworks */,
+				179771012D83DA7700D106F0 /* ZipArchive in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -219,6 +221,9 @@
 			);
 			mainGroup = 1701419B2D122CB400D33198;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				179770FF2D83DA2800D106F0 /* XCRemoteSwiftPackageReference "ZipArchive" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 170141A52D122CB400D33198 /* Products */;
 			projectDirPath = "";
@@ -594,6 +599,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		179770FF2D83DA2800D106F0 /* XCRemoteSwiftPackageReference "ZipArchive" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ZipArchive/ZipArchive.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		179771002D83DA7700D106F0 /* ZipArchive */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 179770FF2D83DA2800D106F0 /* XCRemoteSwiftPackageReference "ZipArchive" */;
+			productName = ZipArchive;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1701419C2D122CB400D33198 /* Project object */;
 }
