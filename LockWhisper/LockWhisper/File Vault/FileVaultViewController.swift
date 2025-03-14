@@ -100,13 +100,56 @@ class FileVaultViewController: UIViewController {
         let documentsURL = fileManager.urls(
             for: .documentDirectory, in: .userDomainMask
         ).first!
+        
         do {
             let fileURLs = try fileManager.contentsOfDirectory(
                 at: documentsURL, includingPropertiesForKeys: nil)
+            
+            // Check for unencrypted files and encrypt them (migration)
+            migrateUnencryptedFiles(fileURLs)
+            
+            // Update the list of files
             files = fileURLs.map { $0.lastPathComponent }
         } catch {
             print("Error loading files from disk: \(error)")
             files = []
+        }
+    }
+    
+    private func migrateUnencryptedFiles(_ fileURLs: [URL]) {
+        for fileURL in fileURLs {
+            // Skip files that are too small to check
+            guard let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+                  let fileSize = attributes[.size] as? UInt64,
+                  fileSize > 0 else {
+                continue
+            }
+            
+            // Read first few bytes to check if encrypted
+            let handler = try? FileHandle(forReadingFrom: fileURL)
+            let headerData = handler?.readData(ofLength: 4)
+            handler?.closeFile()
+            
+            if let data = headerData, !FileEncryptionManager.shared.isEncryptedData(data) {
+                print("Migrating unencrypted file: \(fileURL.lastPathComponent)")
+                
+                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                
+                do {
+                    // Create an encrypted version
+                    try FileEncryptionManager.shared.encryptFile(at: fileURL, to: tempURL)
+                    
+                    // Replace the original file
+                    try FileManager.default.removeItem(at: fileURL)
+                    try FileManager.default.moveItem(at: tempURL, to: fileURL)
+                    
+                    print("Successfully migrated file: \(fileURL.lastPathComponent)")
+                } catch {
+                    print("Failed to migrate file \(fileURL.lastPathComponent): \(error)")
+                    // Clean up the temp file if it exists
+                    try? FileManager.default.removeItem(at: tempURL)
+                }
+            }
         }
     }
 }
@@ -195,15 +238,42 @@ extension FileVaultViewController: UITableViewDataSource, UITableViewDelegate {
                 alert.addAction(
                     UIAlertAction(
                         title: "Export", style: .default,
-                        handler: { _ in
-                            let documentPicker = UIDocumentPickerViewController(
-                                forExporting: [fileURL], asCopy: true)
-                            self.present(
-                                documentPicker, animated: true, completion: nil)
+                        handler: { [weak self] _ in
+                            // Create a temporary decrypted file for export
+                            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                            
+                            do {
+                                // Decrypt the file to the temporary location
+                                try FileEncryptionManager.shared.decryptFile(at: fileURL, to: tempURL)
+                                
+                                // Present a document picker for exporting the decrypted file
+                                let documentPicker = UIDocumentPickerViewController(forExporting: [tempURL], asCopy: true)
+                                self?.present(documentPicker, animated: true) {
+                                    // Schedule cleanup of the temporary file after a reasonable time
+                                    DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 60) {
+                                        try? FileManager.default.removeItem(at: tempURL)
+                                    }
+                                }
+                            } catch {
+                                let errorAlert = UIAlertController(
+                                    title: "Error",
+                                    message: "Failed to decrypt file for export: \(error.localizedDescription)",
+                                    preferredStyle: .alert
+                                )
+                                errorAlert.addAction(UIAlertAction(title: "OK", style: .default))
+                                self?.present(errorAlert, animated: true)
+                            }
                         }))
                 alert.addAction(
                     UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
                 )
+                
+                // For iPad compatibility
+                if let popoverController = alert.popoverPresentationController {
+                    popoverController.sourceView = tableView.cellForRow(at: indexPath)
+                    popoverController.sourceRect = tableView.cellForRow(at: indexPath)?.bounds ?? CGRect.zero
+                }
+                
                 present(alert, animated: true, completion: nil)
             }
         }

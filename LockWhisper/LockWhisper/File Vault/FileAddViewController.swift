@@ -64,7 +64,7 @@ class FileAddViewController: UIViewController {
              return
          }
          
-         // Save (copy) the file locally.
+         // Save (copy) and encrypt the file locally.
          if let sourceURL = self.fileURL {
              let fileManager = FileManager.default
              let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -76,7 +76,9 @@ class FileAddViewController: UIViewController {
                  if fileManager.fileExists(atPath: destinationURL.path) {
                      try fileManager.removeItem(at: destinationURL)
                  }
-                 try fileManager.copyItem(at: sourceURL, to: destinationURL)
+                 
+                 // Encrypt and save the file
+                 try FileEncryptionManager.shared.encryptFile(at: sourceURL, to: destinationURL)
              } catch {
                  let alert = UIAlertController(title: "Error", message: "Failed to save file: \(error.localizedDescription)", preferredStyle: .alert)
                  alert.addAction(UIAlertAction(title: "OK", style: .default))
