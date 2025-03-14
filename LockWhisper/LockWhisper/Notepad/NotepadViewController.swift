@@ -84,11 +84,27 @@ extension NotepadViewController: UITableViewDataSource, UITableViewDelegate {
     
     // Configure each cell with the note's text.
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-
         let cell = tableView.dequeueReusableCell(withIdentifier: "NoteCell") ??
             UITableViewCell(style: .default, reuseIdentifier: "NoteCell")
+        
         let note = notes[indexPath.row]
-        cell.textLabel?.text = note.text
+        let storedText = note.text ?? ""
+        
+        // Try to decrypt the text if it's encrypted
+        if NoteEncryptionManager.shared.isEncryptedBase64String(storedText) {
+            do {
+                let decryptedText = try NoteEncryptionManager.shared.decryptBase64ToString(storedText)
+                cell.textLabel?.text = decryptedText
+            } catch {
+                // Fallback to the stored text if decryption fails
+                cell.textLabel?.text = storedText
+                print("Failed to decrypt note: \(error)")
+            }
+        } else {
+            // Use the plain text for unencrypted notes
+            cell.textLabel?.text = storedText
+        }
+        
         return cell
     }
     
@@ -111,15 +127,53 @@ extension NotepadViewController: UITableViewDataSource, UITableViewDelegate {
     }
 }
 
+extension NotepadViewController {
+    // Override the existing cellForRowAt method to add decryption
+    func tableViewCell(for note: Note) -> UITableViewCell {
+        let cell = UITableViewCell(style: .default, reuseIdentifier: "NoteCell")
+        let storedText = note.text ?? ""
+        
+        // Try to decrypt the text if it's encrypted
+        if NoteEncryptionManager.shared.isEncryptedBase64String(storedText) {
+            do {
+                let decryptedText = try NoteEncryptionManager.shared.decryptBase64ToString(storedText)
+                cell.textLabel?.text = decryptedText
+            } catch {
+                // Fallback to the stored text if decryption fails
+                cell.textLabel?.text = storedText
+                print("Failed to decrypt note: \(error)")
+            }
+        } else {
+            // Use the plain text for unencrypted notes
+            cell.textLabel?.text = storedText
+        }
+        
+        return cell
+    }
+}
+
 extension NotepadViewController: NewNoteDelegate {
     func didAddNewNote(_ noteText: String) {
         let context = CoreDataManager.shared.context
         let note = Note(context: context)
-        note.text = noteText
-        note.createdAt = Date()
-        CoreDataManager.shared.saveContext()
-        notes.append(note)
-        tableView.reloadData()
+        
+        do {
+            // Encrypt the text before saving
+            let encryptedBase64 = try NoteEncryptionManager.shared.encryptStringToBase64(noteText)
+            note.text = encryptedBase64
+            note.createdAt = Date()
+            CoreDataManager.shared.saveContext()
+            notes.append(note)
+            tableView.reloadData()
+        } catch {
+            print("Failed to encrypt note: \(error.localizedDescription)")
+            // Fallback to saving unencrypted if encryption fails
+            note.text = noteText
+            note.createdAt = Date()
+            CoreDataManager.shared.saveContext()
+            notes.append(note)
+            tableView.reloadData()
+        }
     }
 }
 
@@ -130,8 +184,19 @@ protocol NoteDetailDelegate: AnyObject {
 extension NotepadViewController: NoteDetailDelegate {
     func didUpdateNote(_ noteText: String, at index: Int) {
         let note = notes[index]
-        note.text = noteText
-        CoreDataManager.shared.saveContext()
-        tableView.reloadData()
+        
+        do {
+            // Encrypt the text before saving
+            let encryptedBase64 = try NoteEncryptionManager.shared.encryptStringToBase64(noteText)
+            note.text = encryptedBase64
+            CoreDataManager.shared.saveContext()
+            tableView.reloadData()
+        } catch {
+            print("Failed to encrypt updated note: \(error.localizedDescription)")
+            // Fallback to saving unencrypted if encryption fails
+            note.text = noteText
+            CoreDataManager.shared.saveContext()
+            tableView.reloadData()
+        }
     }
 }

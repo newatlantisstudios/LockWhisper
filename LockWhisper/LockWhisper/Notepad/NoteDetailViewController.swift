@@ -34,7 +34,23 @@ class NoteDetailViewController: UIViewController {
         title = "Note"
         view.backgroundColor = .systemBackground
         setupTextView()
-        textView.text = note.text
+        
+        let storedText = note.text ?? ""
+        
+        // Try to decrypt the text if it's encrypted
+        if NoteEncryptionManager.shared.isEncryptedBase64String(storedText) {
+            do {
+                let decryptedText = try NoteEncryptionManager.shared.decryptBase64ToString(storedText)
+                textView.text = decryptedText
+            } catch {
+                // Fallback to the stored text if decryption fails
+                textView.text = storedText
+                print("Failed to decrypt note: \(error)")
+            }
+        } else {
+            // Use the plain text for unencrypted notes
+            textView.text = storedText
+        }
     }
     
     private func setupTextView() {
@@ -53,9 +69,74 @@ class NoteDetailViewController: UIViewController {
         
         if self.isMovingFromParent {
             let updatedText = textView.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if updatedText != note.text {
+            
+            // Get the original text (decrypted)
+            let originalDecryptedText: String
+            let storedText = note.text ?? ""
+            
+            if NoteEncryptionManager.shared.isEncryptedBase64String(storedText) {
+                do {
+                    originalDecryptedText = try NoteEncryptionManager.shared.decryptBase64ToString(storedText)
+                } catch {
+                    originalDecryptedText = storedText
+                }
+            } else {
+                originalDecryptedText = storedText
+            }
+            
+            // Only call delegate if the text actually changed
+            if updatedText != originalDecryptedText {
                 delegate?.didUpdateNote(updatedText, at: noteIndex)
             }
+        }
+    }
+    
+}
+
+// MARK: - Encryption Extensions for NoteDetailViewController
+
+extension NoteDetailViewController {
+    // Decrypt and load note text
+    func loadDecryptedNoteText() {
+        let storedText = note.text ?? ""
+        
+        // Try to decrypt the text if it's encrypted
+        if NoteEncryptionManager.shared.isEncryptedBase64String(storedText) {
+            do {
+                let decryptedText = try NoteEncryptionManager.shared.decryptBase64ToString(storedText)
+                textView.text = decryptedText
+            } catch {
+                // Fallback to the stored text if decryption fails
+                textView.text = storedText
+                print("Failed to decrypt note: \(error)")
+            }
+        } else {
+            // Use the plain text for unencrypted notes
+            textView.text = storedText
+        }
+    }
+    
+    // Modified viewWillDisappear to compare decrypted text properly
+    func handleTextChange() {
+        let updatedText = textView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Get the original text (decrypted)
+        let originalDecryptedText: String
+        let storedText = note.text ?? ""
+        
+        if NoteEncryptionManager.shared.isEncryptedBase64String(storedText) {
+            do {
+                originalDecryptedText = try NoteEncryptionManager.shared.decryptBase64ToString(storedText)
+            } catch {
+                originalDecryptedText = storedText
+            }
+        } else {
+            originalDecryptedText = storedText
+        }
+        
+        // Only call delegate if the text actually changed
+        if updatedText != originalDecryptedText {
+            delegate?.didUpdateNote(updatedText, at: noteIndex)
         }
     }
 }
