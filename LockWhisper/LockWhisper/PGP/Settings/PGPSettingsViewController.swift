@@ -197,17 +197,56 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
     }
 
     private func loadPGPKey() {
-        // Fetch the saved public PGP key from UserDefaults
-        if let savedKey = UserDefaults.standard.string(forKey: userDefaultsKey)
-        {
-            textView.text = savedKey  // Display the key in the textView
-        } else {
-            textView.text = "No PGP key found."  // Default message if no key is saved
+        loadPGPKeyWithEncryption()
+    }
+
+    // New method that uses encryption
+    private func loadPGPKeyWithEncryption() {
+        do {
+            // Attempt to load from UserDefaults
+            if let savedKey = UserDefaults.standard.string(
+                forKey: userDefaultsKey)
+            {
+                // Check if it's encrypted
+                if PGPEncryptionManager.shared.isEncryptedBase64String(savedKey)
+                {
+                    // Decrypt and display
+                    let decryptedKey = try PGPEncryptionManager.shared
+                        .decryptBase64ToString(savedKey)
+                    textView.text = decryptedKey
+                } else {
+                    // Legacy unencrypted key, display as is
+                    textView.text = savedKey
+
+                    // Migrate to encrypted storage if it looks like a valid key
+                    if !savedKey.isEmpty && savedKey != "No PGP key found."
+                        && savedKey.contains(
+                            "-----BEGIN PGP PUBLIC KEY BLOCK-----")
+                    {
+                        try migrateToCryptoKit(savedKey)
+                    }
+                }
+            } else {
+                textView.text = "No PGP key found."
+            }
+        } catch {
+            print("Failed to load PGP key: \(error.localizedDescription)")
+            textView.text = "Error loading key: \(error.localizedDescription)"
         }
     }
 
+    private func migrateToCryptoKit(_ key: String) throws {
+        // Encrypt the key
+        let encryptedKey = try PGPEncryptionManager.shared
+            .encryptStringToBase64(key)
+
+        // Save back to UserDefaults
+        UserDefaults.standard.set(encryptedKey, forKey: userDefaultsKey)
+        print("Successfully migrated public key to CryptoKit encryption")
+    }
+
     @objc private func savePGPKey() {
-        guard let text = textView.text else { return }
+        guard let text = textView.text, !text.isEmpty else { return }
 
         let alert = UIAlertController(
             title: "Save PGP Key",
@@ -217,11 +256,31 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
 
         alert.addAction(
             UIAlertAction(title: "Save", style: .default) { [weak self] _ in
-                UserDefaults.standard.set(
-                    text, forKey: self?.userDefaultsKey ?? "")
-                self?.showAlert(
-                    title: "Success",
-                    message: "Your PGP key has been saved locally.")
+                guard let self = self else { return }
+
+                do {
+                    // Encrypt the key before saving
+                    let encryptedKey = try PGPEncryptionManager.shared
+                        .encryptStringToBase64(text)
+                    UserDefaults.standard.set(
+                        encryptedKey, forKey: self.userDefaultsKey)
+
+                    self.showAlert(
+                        title: "Success",
+                        message:
+                            "Your PGP key has been saved locally with encryption."
+                    )
+                } catch {
+                    // Fallback to unencrypted if encryption fails
+                    UserDefaults.standard.set(
+                        text, forKey: self.userDefaultsKey)
+
+                    self.showAlert(
+                        title: "Warning",
+                        message:
+                            "Your PGP key has been saved, but without additional encryption: \(error.localizedDescription)"
+                    )
+                }
             })
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))

@@ -203,26 +203,47 @@ extension AddConversationViewController: UIDocumentPickerDelegate {
     }
 }
 
-// MARK: - UserDefaults Extension
+// MARK: - UserDefaults Extension for PGP Contacts
 extension UserDefaults {
     var contacts: [ContactPGP] {
         get {
             guard let data = self.data(forKey: "contacts") else { return [] }
-            return (try? JSONDecoder().decode([ContactPGP].self, from: data)) ?? []
+            do {
+                // Try to decrypt if the data is encrypted
+                if PGPEncryptionManager.shared.isEncryptedData(data) {
+                    return try PGPEncryptionManager.shared.decryptContacts(data)
+                } else {
+                    // Handle legacy unencrypted data
+                    return try JSONDecoder().decode([ContactPGP].self, from: data)
+                }
+            } catch {
+                print("Failed to load contacts: \(error.localizedDescription)")
+                return []
+            }
         }
         set {
-            if let data = try? JSONEncoder().encode(newValue) {
-                self.set(data, forKey: "contacts")
+            do {
+                // Encrypt the data
+                let encryptedData = try PGPEncryptionManager.shared.encryptContacts(newValue)
+                
+                // Save the encrypted data
+                self.set(encryptedData, forKey: "contacts")
+            } catch {
+                print("Error saving contacts: \(error.localizedDescription)")
+                
+                // Fallback to unencrypted storage if encryption fails
+                if let encodedData = try? JSONEncoder().encode(newValue) {
+                    self.set(encodedData, forKey: "contacts")
+                }
             }
         }
     }
     
     func migrateContactsIfNeeded() {
-        var contacts = self.contacts
-        // This will trigger the custom decoder in Contact which assigns IDs if missing.
+        let contacts = self.contacts
+        // This will trigger migration to encrypted storage if not already encrypted
         if !contacts.isEmpty {
             self.contacts = contacts
         }
     }
 }
-
