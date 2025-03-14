@@ -10,9 +10,11 @@ protocol ContactInfoDelegate: AnyObject {
 
 extension ConversationViewController: MessageInputDelegate {
     func messageWasAdded() {
-        if let contactsData = UserDefaults.standard.data(forKey: "contacts"),
-           let contacts = try? JSONDecoder().decode([ContactPGP].self, from: contactsData),
-           let updatedContact = contacts.first(where: { $0.name == contact.name }) {
+        // Get contacts using the computed property that handles decryption
+        let contacts = UserDefaults.standard.contacts
+        
+        // Find and update the contact
+        if let updatedContact = contacts.first(where: { $0.name == contact.name }) {
             // Update the local contact property with fresh data
             self.contact = updatedContact
         }

@@ -185,53 +185,34 @@ class MessageInputViewController: UIViewController {
         }
 
         Task {
-            if var contactsData = UserDefaults.standard.data(forKey: "contacts")
-            {
-                let decoder = JSONDecoder()
-                let encoder = JSONEncoder()
+            // Get all contacts using the computed property that handles decryption
+            var contacts = UserDefaults.standard.contacts
 
-                do {
-                    var contacts = try decoder.decode(
-                        [ContactPGP].self, from: contactsData)
-                    if let index = contacts.firstIndex(where: {
-                        $0.name == contact.name
-                    }) {
-                        // Append the plain text message
-                        contacts[index].messages.append(plainText)
+            if let index = contacts.firstIndex(where: {
+                $0.name == contact.name
+            }) {
+                // Append the plain text message
+                contacts[index].messages.append(plainText)
 
-                        // Append the current date as a string
-                        let dateFormatter = DateFormatter()
-                        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                        contacts[index].messageDates.append(
-                            dateFormatter.string(from: Date()))
+                // Append the current date as a string
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                contacts[index].messageDates.append(
+                    dateFormatter.string(from: Date()))
 
-                        contactsData = try encoder.encode(contacts)
-                        UserDefaults.standard.set(
-                            contactsData, forKey: "contacts")
+                // Save using the computed property which handles encryption
+                UserDefaults.standard.contacts = contacts
 
-                        print("Saved plain text message: \(plainText)")
+                print("Saved plain text message: \(plainText)")
 
-                        await MainActor.run {
-                            self.delegate?.messageWasAdded()
-                            self.dismiss(animated: true)
-                        }
-                    } else {
-                        await MainActor.run {
-                            self.showError(
-                                message: "Contact not found in saved contacts")
-                        }
-                    }
-                } catch {
-                    await MainActor.run {
-                        self.showError(
-                            message:
-                                "Failed to save message: \(error.localizedDescription)"
-                        )
-                    }
+                await MainActor.run {
+                    self.delegate?.messageWasAdded()
+                    self.dismiss(animated: true)
                 }
             } else {
                 await MainActor.run {
-                    self.showError(message: "No contacts data found")
+                    self.showError(
+                        message: "Contact not found in saved contacts")
                 }
             }
         }
@@ -299,7 +280,7 @@ class MessageInputViewController: UIViewController {
         Task {
             do {
                 guard
-                    let privateKey = try KeychainHelper.shared.get(
+                    let privateKeyEncrypted = try KeychainHelper.shared.get(
                         key: "privatePGPKey")
                 else {
                     throw NSError(
@@ -307,6 +288,17 @@ class MessageInputViewController: UIViewController {
                         userInfo: [
                             NSLocalizedDescriptionKey: "Private key not found"
                         ])
+                }
+
+                // Decrypt the encrypted private key before using it
+                let privateKey: String
+                if PGPEncryptionManager.shared.isEncryptedBase64String(
+                    privateKeyEncrypted)
+                {
+                    privateKey = try PGPEncryptionManager.shared
+                        .decryptBase64ToString(privateKeyEncrypted)
+                } else {
+                    privateKey = privateKeyEncrypted
                 }
 
                 let decryptedText = try await PGPWebView.shared.decrypt(
@@ -430,82 +422,51 @@ class MessageInputViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func decryptMessageAndAdd(
-        encryptedText: String, passphrase: String?
-    ) {
+    private func decryptMessageAndAdd(encryptedText: String, passphrase: String?) {
         Task {
             do {
-                guard
-                    let privateKey = try KeychainHelper.shared.get(
-                        key: "privatePGPKey")
-                else {
-                    throw NSError(
-                        domain: "", code: -1,
-                        userInfo: [
-                            NSLocalizedDescriptionKey: "Private key not found"
-                        ])
+                guard let privateKeyEncrypted = try KeychainHelper.shared.get(key: "privatePGPKey") else {
+                    throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Private key not found"])
+                }
+                
+                // Decrypt the encrypted private key before using it
+                let privateKey: String
+                if PGPEncryptionManager.shared.isEncryptedBase64String(privateKeyEncrypted) {
+                    privateKey = try PGPEncryptionManager.shared.decryptBase64ToString(privateKeyEncrypted)
+                } else {
+                    privateKey = privateKeyEncrypted
                 }
 
                 let decryptedText = try await PGPWebView.shared.decrypt(
-                    encryptedText, withPrivateKey: privateKey,
-                    passphrase: passphrase)
+                    encryptedText, withPrivateKey: privateKey, passphrase: passphrase)
 
                 guard let contact = self.contact else {
-                    throw NSError(
-                        domain: "", code: -1,
-                        userInfo: [
-                            NSLocalizedDescriptionKey: "Contact not found"
-                        ])
+                    throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Contact not found"])
                 }
 
                 await MainActor.run {
-                    // Save to UserDefaults
-                    if var contactsData = UserDefaults.standard.data(
-                        forKey: "contacts")
-                    {
-                        let decoder = JSONDecoder()
-                        let encoder = JSONEncoder()
-
-                        do {
-                            var contacts = try decoder.decode(
-                                [ContactPGP].self, from: contactsData)
-                            if let index = contacts.firstIndex(where: {
-                                $0.name == contact.name
-                            }) {
-                                contacts[index].messages.append(decryptedText)
-
-                                let dateFormatter = DateFormatter()
-                                dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                                contacts[index].messageDates.append(
-                                    dateFormatter.string(from: Date()))
-
-                                contactsData = try encoder.encode(contacts)
-                                UserDefaults.standard.set(
-                                    contactsData, forKey: "contacts")
-                                print(
-                                    "Saved messages:", contacts[index].messages)
-                                self.textView.text = decryptedText
-                                self.delegate?.messageWasAdded()
-                                self.dismiss(animated: true)
-                            } else {
-                                self.showError(
-                                    message:
-                                        "Contact not found in saved contacts")
-                            }
-                        } catch {
-                            self.showError(
-                                message:
-                                    "Failed to save message: \(error.localizedDescription)"
-                            )
-                        }
+                    // Use the UserDefaults extension's getter and setter for contacts
+                    var contacts = UserDefaults.standard.contacts
+                    if let index = contacts.firstIndex(where: { $0.name == contact.name }) {
+                        contacts[index].messages.append(decryptedText)
+                        
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                        contacts[index].messageDates.append(dateFormatter.string(from: Date()))
+                        
+                        // Use the setter which handles encryption
+                        UserDefaults.standard.contacts = contacts
+                        
+                        self.textView.text = decryptedText
+                        self.delegate?.messageWasAdded()
+                        self.dismiss(animated: true)
                     } else {
-                        self.showError(message: "No contacts data found")
+                        self.showError(message: "Contact not found in saved contacts")
                     }
                 }
             } catch PGPError.needsPassphrase {
                 await MainActor.run {
-                    self.showPassphrasePromptAndAdd(
-                        encryptedText: encryptedText)
+                    self.showPassphrasePromptAndAdd(encryptedText: encryptedText)
                 }
             } catch {
                 await MainActor.run {
