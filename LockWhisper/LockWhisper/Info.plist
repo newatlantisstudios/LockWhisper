@@ -4,6 +4,10 @@
 <dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>LockWhisper needs access to your camera to take photos and videos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LockWhisper needs access to your microphone to record videos with sound.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

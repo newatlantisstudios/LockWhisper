@@ -1,12 +1,15 @@
 import UIKit
 import LocalAuthentication  // Needed for biometric authentication
+import AVFoundation
+// Add required imports for controllers
+import CoreData
 
 class DashboardViewController: UIViewController {
     
     // MARK: - Data
     
-    let items = ["PGP", "Notepad", "Contacts", "File Vault", "Passwords"]
-    let imageNames = ["pgp", "notepad", "contacts", "fileVault", "passwords"]
+    let items = ["PGP", "Notepad", "Contacts", "File Vault", "Passwords", "Camera", "Voice Memo", "Media Library", "Calendar", "TODO"]
+    let imageNames = ["pgp", "notepad", "contacts", "fileVault", "passwords", "camera", "voiceMemo", "mediaLibrary", "calendar", "todo"]
     
     // MARK: - UI Elements
     
@@ -146,6 +149,21 @@ extension DashboardViewController: UICollectionViewDataSource, UICollectionViewD
             // Push the FileVaultViewController when File Vault is tapped.
             let fileVaultVC = FileVaultViewController()
             navigationController?.pushViewController(fileVaultVC, animated: true)
+        } else if selectedItem == "Camera" {
+            let cameraVC = CameraViewController()
+            navigationController?.pushViewController(cameraVC, animated: true)
+        } else if selectedItem == "Voice Memo" {
+            let voiceMemoVC = VoiceMemoViewController()
+            navigationController?.pushViewController(voiceMemoVC, animated: true)
+        } else if selectedItem == "Media Library" {
+            let mediaLibraryVC = MediaLibraryViewController()
+            navigationController?.pushViewController(mediaLibraryVC, animated: true)
+        } else if selectedItem == "Calendar" {
+            let calendarVC = CalendarViewController()
+            navigationController?.pushViewController(calendarVC, animated: true)
+        } else if selectedItem == "TODO" {
+            let todoVC = TODOViewController()
+            navigationController?.pushViewController(todoVC, animated: true)
         }
     }
 }
