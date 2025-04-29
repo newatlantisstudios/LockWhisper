@@ -140,29 +140,25 @@ class ContactInfoViewController: UIViewController {
     }
     
     @objc private func saveNicknameTapped() {
-        if let contactsData = UserDefaults.standard.data(forKey: "contacts"),
-           var contacts = try? JSONDecoder().decode([ContactPGP].self, from: contactsData),
-           let index = contacts.firstIndex(where: { $0.name == contact.name }) {
-            contacts[index].name = nicknameTextView.text
-            if let encodedData = try? JSONEncoder().encode(contacts) {
-                UserDefaults.standard.set(encodedData, forKey: "contacts")
-                contact = contacts[index]
-                delegate?.contactDidUpdate(contact)
-                showAlert(message: "Nickname saved successfully!")
-            }
+        let contacts = UserDefaults.standard.contacts
+        if let index = contacts.firstIndex(where: { $0.name == contact.name }) {
+            var updatedContacts = contacts
+            updatedContacts[index].name = nicknameTextView.text
+            UserDefaults.standard.contacts = updatedContacts
+            contact = updatedContacts[index]
+            delegate?.contactDidUpdate(contact)
+            showAlert(message: "Nickname saved successfully!")
         }
     }
     
     @objc private func savePublicKeyTapped() {
-        if let contactsData = UserDefaults.standard.data(forKey: "contacts"),
-           var contacts = try? JSONDecoder().decode([ContactPGP].self, from: contactsData),
-           let index = contacts.firstIndex(where: { $0.name == contact.name }) {
-            contacts[index].publicKey = publicKeyTextView.text
-            if let encodedData = try? JSONEncoder().encode(contacts) {
-                UserDefaults.standard.set(encodedData, forKey: "contacts")
-                contact = contacts[index]
-                showAlert(message: "Public key saved successfully!")
-            }
+        let contacts = UserDefaults.standard.contacts
+        if let index = contacts.firstIndex(where: { $0.name == contact.name }) {
+            var updatedContacts = contacts
+            updatedContacts[index].publicKey = publicKeyTextView.text
+            UserDefaults.standard.contacts = updatedContacts
+            contact = updatedContacts[index]
+            showAlert(message: "Public key saved successfully!")
         }
     }
     

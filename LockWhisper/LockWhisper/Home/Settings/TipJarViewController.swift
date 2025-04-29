@@ -38,6 +38,16 @@ class TipJarViewController: UIViewController, SKProductsRequestDelegate, SKPayme
     // MARK: - UI Setup
     
     private func setupUI() {
+        // Add a description label at the top.
+        let descriptionLabel = UILabel()
+        descriptionLabel.text = "If you enjoy using LockWhisper, consider leaving a tip! Your support helps keep the app updated and free for everyone. Thank you!"
+        descriptionLabel.font = UIFont.systemFont(ofSize: 17)
+        descriptionLabel.textColor = .label
+        descriptionLabel.numberOfLines = 0
+        descriptionLabel.textAlignment = .center
+        descriptionLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(descriptionLabel)
+        
         // Create a vertical stack view to hold the tip buttons.
         let stackView = UIStackView()
         stackView.axis = .vertical
@@ -55,7 +65,11 @@ class TipJarViewController: UIViewController, SKProductsRequestDelegate, SKPayme
         }
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 40),
+            descriptionLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24),
+            descriptionLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            descriptionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            
+            stackView.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 32),
             stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
         ])
@@ -71,7 +85,7 @@ class TipJarViewController: UIViewController, SKProductsRequestDelegate, SKPayme
         button.clipsToBounds = true
         button.heightAnchor.constraint(equalToConstant: 50).isActive = true
         
-        // Store the product identifier in the button’s accessibilityIdentifier.
+        // Store the product identifier in the button's accessibilityIdentifier.
         button.accessibilityIdentifier = productID
         button.addTarget(self, action: #selector(tipButtonTapped(_:)), for: .touchUpInside)
         // Initially disable until product info is available.

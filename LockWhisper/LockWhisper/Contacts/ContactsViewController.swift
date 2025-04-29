@@ -87,19 +87,26 @@ class ContactsViewController: UIViewController {
         let encoder = JSONEncoder()
         do {
             let encodedData = try encoder.encode(contacts)
-
             // Encrypt the data
             let key = try getOrCreateEncryptionKey()
             let encryptedData = try encryptData(encodedData, using: key)
-
             // Save the encrypted data
             UserDefaults.standard.set(encryptedData, forKey: contactsKey)
         } catch {
             print("Error saving contacts: \(error.localizedDescription)")
-
-            // Fallback to unencrypted storage if encryption fails
-            if let encodedData = try? encoder.encode(contacts) {
-                UserDefaults.standard.set(encodedData, forKey: contactsKey)
+            let allowFallback = UserDefaults.standard.bool(forKey: "allowUnencryptedFallback")
+            if allowFallback {
+                // Fallback to unencrypted storage if encryption fails
+                if let encodedData = try? encoder.encode(contacts) {
+                    UserDefaults.standard.set(encodedData, forKey: contactsKey)
+                }
+            } else {
+                // Alert the user and refuse to save
+                DispatchQueue.main.async {
+                    let alert = UIAlertController(title: "Encryption Error", message: "Failed to encrypt your contacts. Your changes were NOT saved to prevent unencrypted storage.", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
             }
         }
     }
@@ -256,18 +263,17 @@ extension ContactsViewController: AddContactDelegate {
     func didAddContact(_ contact: ContactContacts) {
         contacts.append(contact)
         saveContacts()
-        tableView.reloadData()
+        let newIndexPath = IndexPath(row: contacts.count - 1, section: 0)
+        tableView.insertRows(at: [newIndexPath], with: .automatic)
     }
 }
 
 extension ContactsViewController: ContactDetailDelegate {
     func didUpdateContact(_ updatedContact: ContactContacts, at index: Int) {
-        // Update the contact in the array.
         contacts[index] = updatedContact
-        // Save the updated contacts.
         saveContacts()
-        // Reload the table view to reflect changes.
-        tableView.reloadData()
+        let indexPath = IndexPath(row: index, section: 0)
+        tableView.reloadRows(at: [indexPath], with: .automatic)
     }
 }
 

@@ -5,9 +5,11 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>LockWhisper needs access to your camera to take photos and videos.</string>
+	<string>LockWhisper needs access to your camera so you can take photos and videos and securely store them in your private, encrypted file vault within the app.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>LockWhisper needs access to your microphone to record videos with sound.</string>
+	<string>LockWhisper needs access to your microphone so you can record videos with sound and securely store them in your private, encrypted file vault within the app.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>LockWhisper needs access to your photo library so you can import photos and videos to securely store them in your private, encrypted file vault within the app.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

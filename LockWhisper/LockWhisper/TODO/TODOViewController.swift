@@ -1,14 +1,10 @@
 import UIKit
 import CoreData
 
-protocol NewTODODelegate: AnyObject {
-    func didAddNewTODO(_ title: String)
-}
-
 class TODOViewController: UIViewController {
     
     // Array to store fetched TODOItems objects
-    var todoItems: [NSManagedObject] = []
+    var todoItems: [TODOItem] = []
     
     // Table view to display TODOs
     let tableView: UITableView = {
@@ -49,55 +45,40 @@ class TODOViewController: UIViewController {
     }
     
     @objc private func addTODOTapped() {
-        let alert = UIAlertController(title: "New TODO", message: "Enter a title for your TODO item", preferredStyle: .alert)
-        
-        alert.addTextField { textField in
-            textField.placeholder = "TODO Title"
-        }
-        
-        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
-        let saveAction = UIAlertAction(title: "Save", style: .default) { [weak self] _ in
-            guard let self = self,
-                  let textField = alert.textFields?.first,
-                  let todoTitle = textField.text, !todoTitle.isEmpty else { return }
-            
-            self.addNewTODO(todoTitle)
-        }
-        
-        alert.addAction(cancelAction)
-        alert.addAction(saveAction)
-        
-        present(alert, animated: true)
+        let newTODO = NewTODOViewController()
+        newTODO.delegate = self
+        newTODO.modalPresentationStyle = .formSheet
+        present(newTODO, animated: true)
     }
     
     private func addNewTODO(_ title: String) {
         let context = CoreDataManager.shared.context
-        
         do {
-            // Encrypt the title before saving
             let encryptedTitle = try TODOEncryptionManager.shared.encryptStringToBase64(title)
-            
-            // Create TODO item with encrypted title
-            if let todoItem = NSManagedObject.createTODOItem(title: encryptedTitle, completed: false, in: context) {
-                CoreDataManager.shared.saveContext()
-                todoItems.append(todoItem)
-                tableView.reloadData()
-            }
+            let todoItem = TODOItem(context: context)
+            todoItem.title = encryptedTitle
+            todoItem.completed = false
+            todoItem.createdAt = Date()
+            CoreDataManager.shared.saveContext()
+            todoItems.append(todoItem)
+            let newIndexPath = IndexPath(row: todoItems.count - 1, section: 0)
+            tableView.insertRows(at: [newIndexPath], with: .automatic)
         } catch {
             print("Failed to encrypt TODO title: \(error.localizedDescription)")
-            
-            // Fallback to saving unencrypted if encryption fails
-            if let todoItem = NSManagedObject.createTODOItem(title: title, completed: false, in: context) {
-                CoreDataManager.shared.saveContext()
-                todoItems.append(todoItem)
-                tableView.reloadData()
-            }
+            let todoItem = TODOItem(context: context)
+            todoItem.title = title
+            todoItem.completed = false
+            todoItem.createdAt = Date()
+            CoreDataManager.shared.saveContext()
+            todoItems.append(todoItem)
+            let newIndexPath = IndexPath(row: todoItems.count - 1, section: 0)
+            tableView.insertRows(at: [newIndexPath], with: .automatic)
         }
     }
     
     // Fetch TODO items from Core Data
     func fetchTODOItems() {
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "TODOItem")
+        let fetchRequest: NSFetchRequest<TODOItem> = NSFetchRequest(entityName: Constants.todoItemEntity)
         let sortDescriptor = NSSortDescriptor(key: "createdAt", ascending: false)
         fetchRequest.sortDescriptors = [sortDescriptor]
         
@@ -121,8 +102,7 @@ class TODOViewController: UIViewController {
     // Toggle completion status of a TODO item
     func toggleTODOCompletion(at indexPath: IndexPath) {
         let todoItem = todoItems[indexPath.row]
-        let completed = todoItem.value(forKey: "completed") as? Bool ?? false
-        todoItem.setValue(!completed, forKey: "completed")
+        todoItem.completed.toggle()
         CoreDataManager.shared.saveContext()
         tableView.reloadRows(at: [indexPath], with: .automatic)
     }
@@ -141,8 +121,8 @@ extension TODOViewController: UITableViewDataSource, UITableViewDelegate {
             UITableViewCell(style: .default, reuseIdentifier: "TODOCell")
         
         let todoItem = todoItems[indexPath.row]
-        let storedTitle = todoItem.value(forKey: "title") as? String ?? ""
-        let completed = todoItem.value(forKey: "completed") as? Bool ?? false
+        let storedTitle = todoItem.title ?? ""
+        let completed = todoItem.completed
         
         // Try to decrypt the title if it's encrypted
         if TODOEncryptionManager.shared.isEncryptedBase64String(storedTitle) {
@@ -178,5 +158,17 @@ extension TODOViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         toggleTODOCompletion(at: indexPath)
+    }
+}
+
+// Add delegate conformance
+extension TODOViewController: NewTODODelegate {
+    func didAddNewTODO(_ title: String) {
+        dismiss(animated: true) {
+            self.addNewTODO(title)
+        }
+    }
+    func didCancelNewTODO() {
+        dismiss(animated: true)
     }
 }

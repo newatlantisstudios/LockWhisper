@@ -7,7 +7,8 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
     private let textView = UITextView()
     private let scrollView = UIScrollView()
     private let contentView = UIView()
-    private let userDefaultsKey = "publicPGPKey"
+    private let userDefaultsKey = Constants.publicPGPKey
+    private let keychainKey = Constants.publicPGPKey
     private let eraseButton = StyledButton()
     private let saveButton = StyledButton()
     private let airDropButton = StyledButton()
@@ -23,6 +24,7 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
         view.backgroundColor = .systemBackground
 
         setupUI()
+        migratePGPPublicKeyIfNeeded()
         loadPGPKey()  // Load the saved PGP key
     }
 
@@ -196,35 +198,28 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
         button.setStyle(style)
     }
 
-    private func loadPGPKey() {
-        loadPGPKeyWithEncryption()
+    private func migratePGPPublicKeyIfNeeded() {
+        // If key exists in UserDefaults but not in Keychain, migrate it
+        if let savedKey = UserDefaults.standard.string(forKey: userDefaultsKey),
+           (try? KeychainHelper.shared.get(key: keychainKey)) == nil {
+            do {
+                try KeychainHelper.shared.save(key: keychainKey, value: savedKey)
+                UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+            } catch {
+                print("Failed to migrate PGP public key to Keychain: \(error)")
+            }
+        }
     }
 
-    // New method that uses encryption
-    private func loadPGPKeyWithEncryption() {
+    private func loadPGPKey() {
         do {
-            // Attempt to load from UserDefaults
-            if let savedKey = UserDefaults.standard.string(
-                forKey: userDefaultsKey)
-            {
+            if let savedKey = try KeychainHelper.shared.get(key: keychainKey) {
                 // Check if it's encrypted
-                if PGPEncryptionManager.shared.isEncryptedBase64String(savedKey)
-                {
-                    // Decrypt and display
-                    let decryptedKey = try PGPEncryptionManager.shared
-                        .decryptBase64ToString(savedKey)
+                if PGPEncryptionManager.shared.isEncryptedBase64String(savedKey) {
+                    let decryptedKey = try PGPEncryptionManager.shared.decryptBase64ToString(savedKey)
                     textView.text = decryptedKey
                 } else {
-                    // Legacy unencrypted key, display as is
                     textView.text = savedKey
-
-                    // Migrate to encrypted storage if it looks like a valid key
-                    if !savedKey.isEmpty && savedKey != "No PGP key found."
-                        && savedKey.contains(
-                            "-----BEGIN PGP PUBLIC KEY BLOCK-----")
-                    {
-                        try migrateToCryptoKit(savedKey)
-                    }
                 }
             } else {
                 textView.text = "No PGP key found."
@@ -235,54 +230,41 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
         }
     }
 
-    private func migrateToCryptoKit(_ key: String) throws {
-        // Encrypt the key
-        let encryptedKey = try PGPEncryptionManager.shared
-            .encryptStringToBase64(key)
-
-        // Save back to UserDefaults
-        UserDefaults.standard.set(encryptedKey, forKey: userDefaultsKey)
-        print("Successfully migrated public key to CryptoKit encryption")
-    }
-
     @objc private func savePGPKey() {
         guard let text = textView.text, !text.isEmpty else { return }
-
         let alert = UIAlertController(
             title: "Save PGP Key",
             message:
                 "Are you sure you want to save this PGP key? This will overwrite any existing key.",
             preferredStyle: .alert)
-
         alert.addAction(
             UIAlertAction(title: "Save", style: .default) { [weak self] _ in
                 guard let self = self else { return }
-
                 do {
-                    // Encrypt the key before saving
-                    let encryptedKey = try PGPEncryptionManager.shared
-                        .encryptStringToBase64(text)
-                    UserDefaults.standard.set(
-                        encryptedKey, forKey: self.userDefaultsKey)
-
+                    let encryptedKey = try PGPEncryptionManager.shared.encryptStringToBase64(text)
+                    try KeychainHelper.shared.save(key: self.keychainKey, value: encryptedKey)
                     self.showAlert(
                         title: "Success",
                         message:
-                            "Your PGP key has been saved locally with encryption."
+                            "Your PGP key has been saved securely with encryption."
                     )
                 } catch {
-                    // Fallback to unencrypted if encryption fails
-                    UserDefaults.standard.set(
-                        text, forKey: self.userDefaultsKey)
-
-                    self.showAlert(
-                        title: "Warning",
-                        message:
-                            "Your PGP key has been saved, but without additional encryption: \(error.localizedDescription)"
-                    )
+                    do {
+                        try KeychainHelper.shared.save(key: self.keychainKey, value: text)
+                        self.showAlert(
+                            title: "Warning",
+                            message:
+                                "Your PGP key has been saved, but without additional encryption: \(error.localizedDescription)"
+                        )
+                    } catch {
+                        self.showAlert(
+                            title: "Error",
+                            message:
+                                "Failed to save the PGP key: \(error.localizedDescription)"
+                        )
+                    }
                 }
             })
-
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)
     }
@@ -293,18 +275,17 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
             message:
                 "Are you sure you want to erase your public PGP key? This action cannot be undone.",
             preferredStyle: .alert)
-
         alert.addAction(
             UIAlertAction(title: "Erase", style: .destructive) {
                 [weak self] _ in
-                UserDefaults.standard.removeObject(
-                    forKey: self?.userDefaultsKey ?? "")
+                do {
+                    try KeychainHelper.shared.delete(key: self?.keychainKey ?? "")
+                } catch {}
                 self?.textView.text = "No PGP key found."
                 self?.showAlert(
                     title: "Success",
                     message: "Your public PGP key has been erased.")
             })
-
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)
     }
@@ -426,9 +407,7 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
             var exportedFiles: [String] = []
 
             if exportPublic {
-                if let publicKey = UserDefaults.standard.string(
-                    forKey: userDefaultsKey)
-                {
+                if let publicKey = try KeychainHelper.shared.get(key: keychainKey) {
                     let publicKeyPath = keysDirectory.appendingPathComponent(
                         "public_key.asc")
                     try publicKey.write(
@@ -532,88 +511,10 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
     }
 
     @objc private func makePGPKeyPair() {
-        promptForKeyDetails { [weak self] name, email, passphrase in
-            guard let self = self else { return }
-
-            Task {
-                do {
-                    let (publicKey, privateKey) = try await PGPWebView.shared
-                        .makePGPKeyPair(
-                            name: name,
-                            email: email,
-                            passphrase: passphrase
-                        )
-
-                    // Save keys
-                    try KeychainHelper.shared.save(
-                        key: "privatePGPKey", value: privateKey)
-                    UserDefaults.standard.set(
-                        publicKey, forKey: self.userDefaultsKey)
-
-                    DispatchQueue.main.async {
-                        self.textView.text = publicKey
-                        self.showAlert(
-                            title: "Success",
-                            message: "PGP key pair generated successfully")
-                    }
-                } catch {
-                    DispatchQueue.main.async {
-                        self.showAlert(
-                            title: "Error",
-                            message:
-                                "Failed to generate key pair: \(error.localizedDescription)"
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private func promptForKeyDetails(
-        completion: @escaping (String, String, String) -> Void
-    ) {
-        let alertController = UIAlertController(
-            title: "Generate PGP Key Pair",
-            message: "Enter your details to generate a PGP key pair.",
-            preferredStyle: .alert)
-
-        // Add text fields for name, email, and passphrase
-        alertController.addTextField { textField in
-            textField.placeholder = "Name (e.g., John Doe)"
-        }
-        alertController.addTextField { textField in
-            textField.placeholder = "Email (e.g., johndoe@example.com)"
-            textField.keyboardType = .emailAddress
-        }
-        alertController.addTextField { textField in
-            textField.placeholder = "Passphrase"
-            textField.isSecureTextEntry = true
-        }
-
-        // Add actions
-        let generateAction = UIAlertAction(title: "Generate", style: .default) {
-            _ in
-            // Retrieve user input
-            guard var name = alertController.textFields?[0].text, !name.isEmpty,
-                var email = alertController.textFields?[1].text, !email.isEmpty,
-                var passphrase = alertController.textFields?[2].text,
-                !passphrase.isEmpty
-            else {
-                self.showAlert(
-                    title: "Error", message: "All fields are required.")
-                return
-            }
-            completion(name, email, passphrase)
-        }
-
-        let cancelAction = UIAlertAction(
-            title: "Cancel", style: .cancel, handler: nil)
-
-        alertController.addAction(generateAction)
-        alertController.addAction(cancelAction)
-
-        // Present the alert
-        present(alertController, animated: true, completion: nil)
+        let keyGenVC = PGPKeyGenerationViewController()
+        keyGenVC.delegate = self
+        keyGenVC.modalPresentationStyle = .formSheet
+        present(keyGenVC, animated: true)
     }
 
     func documentPicker(
@@ -637,7 +538,7 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
 
             if fileContents.contains("PUBLIC KEY") {
                 // Save public key to UserDefaults
-                UserDefaults.standard.set(fileContents, forKey: "publicPGPKey")
+                try KeychainHelper.shared.save(key: self.keychainKey, value: fileContents)
                 message += "- Public Key\n"
             }
 
@@ -666,5 +567,34 @@ class PGPSettingsViewController: UIViewController, UIDocumentPickerDelegate {
         alertController.addAction(
             UIAlertAction(title: "OK", style: .default, handler: nil))
         present(alertController, animated: true, completion: nil)
+    }
+}
+
+// Add delegate conformance
+extension PGPSettingsViewController: PGPKeyGenerationDelegate {
+    func didRequestKeyGeneration(name: String, email: String, passphrase: String) {
+        dismiss(animated: true) {
+            self.generatePGPKeyPair(name: name, email: email, passphrase: passphrase)
+        }
+    }
+    func didCancelKeyGeneration() {
+        dismiss(animated: true)
+    }
+    private func generatePGPKeyPair(name: String, email: String, passphrase: String) {
+        Task {
+            do {
+                let (publicKey, privateKey) = try await PGPWebView.shared.makePGPKeyPair(name: name, email: email, passphrase: passphrase)
+                try KeychainHelper.shared.save(key: "privatePGPKey", value: privateKey)
+                try KeychainHelper.shared.save(key: self.keychainKey, value: publicKey)
+                DispatchQueue.main.async {
+                    self.textView.text = publicKey
+                    self.showAlert(title: "Success", message: "PGP key pair generated successfully")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.showAlert(title: "Error", message: "Failed to generate key pair: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }

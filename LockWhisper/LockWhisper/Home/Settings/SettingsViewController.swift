@@ -24,8 +24,16 @@ class SettingsViewController: UIViewController {
     private let biometricSwitch: UISwitch = {
        let biometricSwitch = UISwitch()
        biometricSwitch.translatesAutoresizingMaskIntoConstraints = false
-       biometricSwitch.isOn = UserDefaults.standard.bool(forKey: "biometricEnabled")
+       biometricSwitch.isOn = UserDefaults.standard.bool(forKey: Constants.biometricEnabled)
        return biometricSwitch
+    }()
+    
+    // A switch to toggle unencrypted fallback
+    private let fallbackSwitch: UISwitch = {
+        let fallbackSwitch = UISwitch()
+        fallbackSwitch.translatesAutoresizingMaskIntoConstraints = false
+        fallbackSwitch.isOn = UserDefaults.standard.bool(forKey: Constants.allowUnencryptedFallback)
+        return fallbackSwitch
     }()
     
     // MARK: - Lifecycle
@@ -74,7 +82,7 @@ class SettingsViewController: UIViewController {
         // Add both the label and the switch to the view.
         view.addSubview(biometricLabel)
         view.addSubview(biometricSwitch)
-        
+
         // Add target to update the stored preference when the switch toggles.
         biometricSwitch.addTarget(self, action: #selector(biometricSwitchToggled(_:)), for: .valueChanged)
         
@@ -86,6 +94,21 @@ class SettingsViewController: UIViewController {
             biometricSwitch.centerYAnchor.constraint(equalTo: biometricLabel.centerYAnchor),
             biometricSwitch.leadingAnchor.constraint(equalTo: biometricLabel.trailingAnchor, constant: 16)
         ])
+
+        // Add fallback label and switch below biometric
+        let fallbackLabel = UILabel()
+        fallbackLabel.text = "Allow Unencrypted Fallback (Not Recommended)"
+        fallbackLabel.font = UIFont.systemFont(ofSize: 16)
+        fallbackLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(fallbackLabel)
+        view.addSubview(fallbackSwitch)
+        fallbackSwitch.addTarget(self, action: #selector(fallbackSwitchToggled(_:)), for: .valueChanged)
+        NSLayoutConstraint.activate([
+            fallbackLabel.topAnchor.constraint(equalTo: biometricLabel.bottomAnchor, constant: 24),
+            fallbackLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            fallbackSwitch.centerYAnchor.constraint(equalTo: fallbackLabel.centerYAnchor),
+            fallbackSwitch.leadingAnchor.constraint(equalTo: fallbackLabel.trailingAnchor, constant: 16)
+        ])
     }
     
     // MARK: - Actions
@@ -96,7 +119,11 @@ class SettingsViewController: UIViewController {
     }
     
     @objc private func biometricSwitchToggled(_ sender: UISwitch) {
-        UserDefaults.standard.set(sender.isOn, forKey: "biometricEnabled")
+        UserDefaults.standard.set(sender.isOn, forKey: Constants.biometricEnabled)
+    }
+    
+    @objc private func fallbackSwitchToggled(_ sender: UISwitch) {
+        UserDefaults.standard.set(sender.isOn, forKey: Constants.allowUnencryptedFallback)
     }
 }
 
@@ -194,39 +221,10 @@ extension SettingsViewController {
     }
     
     private func promptForExportPassword() {
-        let alert = UIAlertController(title: "Set Export Password", message: "Create a password to protect your exported data", preferredStyle: .alert)
-        
-        alert.addTextField { textField in
-            textField.placeholder = "Password"
-            textField.isSecureTextEntry = true
-        }
-        
-        alert.addTextField { textField in
-            textField.placeholder = "Confirm Password"
-            textField.isSecureTextEntry = true
-        }
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Export", style: .default) { [weak self, weak alert] _ in
-            guard let alert = alert,
-                  let passwordField = alert.textFields?[0],
-                  let confirmField = alert.textFields?[1],
-                  let password = passwordField.text,
-                  let confirmPassword = confirmField.text,
-                  !password.isEmpty else {
-                self?.showAlert(title: "Error", message: "Password cannot be empty")
-                return
-            }
-            
-            if password != confirmPassword {
-                self?.showAlert(title: "Error", message: "Passwords do not match")
-                return
-            }
-            
-            self?.performExport(withPassword: password)
-        })
-        
-        present(alert, animated: true)
+        let exportPasswordVC = ExportPasswordViewController()
+        exportPasswordVC.delegate = self
+        exportPasswordVC.modalPresentationStyle = .formSheet
+        present(exportPasswordVC, animated: true)
     }
     
     private func performExport(withPassword password: String) {
@@ -359,25 +357,25 @@ extension SettingsViewController {
         var migratedData: [String: Any] = [:]
         
         // 1. Export biometric setting (not encrypted)
-        migratedData["biometricEnabled"] = defaults.bool(forKey: "biometricEnabled")
+        migratedData[Constants.biometricEnabled] = defaults.bool(forKey: Constants.biometricEnabled)
         
         // 2. Export public PGP key (might be encrypted)
-        if let publicKey = defaults.string(forKey: "publicPGPKey") {
+        if let publicKey = defaults.string(forKey: Constants.publicPGPKey) {
             if PGPEncryptionManager.shared.isEncryptedBase64String(publicKey) {
                 do {
                     let decryptedKey = try PGPEncryptionManager.shared.decryptBase64ToString(publicKey)
-                    migratedData["publicPGPKey"] = decryptedKey
+                    migratedData[Constants.publicPGPKey] = decryptedKey
                 } catch {
                     print("Error decrypting PGP key: \(error)")
-                    migratedData["publicPGPKey"] = publicKey
+                    migratedData[Constants.publicPGPKey] = publicKey
                 }
             } else {
-                migratedData["publicPGPKey"] = publicKey
+                migratedData[Constants.publicPGPKey] = publicKey
             }
         }
         
         // 3. Export contacts (decrypt them)
-        if let contactsData = defaults.data(forKey: "savedContacts") {
+        if let contactsData = defaults.data(forKey: Constants.savedContacts) {
             do {
                 if isEncryptedData(contactsData) {
                     // Get encryption key and decrypt
@@ -402,7 +400,7 @@ extension SettingsViewController {
                         contactDicts.append(contactDict)
                     }
                     
-                    migratedData["savedContacts"] = contactDicts
+                    migratedData[Constants.savedContacts] = contactDicts
                 } else {
                     // Handle legacy unencrypted data
                     let contacts = try JSONDecoder().decode([ContactContacts].self, from: contactsData)
@@ -422,7 +420,7 @@ extension SettingsViewController {
                         contactDicts.append(contactDict)
                     }
                     
-                    migratedData["savedContacts"] = contactDicts
+                    migratedData[Constants.savedContacts] = contactDicts
                 }
             } catch {
                 print("Error decrypting contacts: \(error)")
@@ -454,7 +452,7 @@ extension SettingsViewController {
         migratedData["contacts"] = pgpContactDicts
         
         // 5. Export passwords (decrypt them)
-        if let passwordsData = defaults.data(forKey: "savedPasswords") {
+        if let passwordsData = defaults.data(forKey: Constants.savedPasswords) {
             do {
                 if PasswordEncryptionManager.shared.isEncryptedData(passwordsData) {
                     let decryptedData = try PasswordEncryptionManager.shared.decryptData(passwordsData)
@@ -897,60 +895,59 @@ extension SettingsViewController {
     
     private func importUserDefaults(from directory: URL) throws {
         let userDefaultsURL = directory.appendingPathComponent("user_defaults_decrypted.json")
-        
         guard FileManager.default.fileExists(atPath: userDefaultsURL.path) else {
             throw NSError(domain: "com.lockwhisper.migration", code: 2004, userInfo: [NSLocalizedDescriptionKey: "Missing user defaults data in migration package"])
         }
-        
         let jsonData = try Data(contentsOf: userDefaultsURL)
         let importedData = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
-        
         guard let importedData = importedData else {
             throw NSError(domain: "com.lockwhisper.migration", code: 2005, userInfo: [NSLocalizedDescriptionKey: "Invalid user defaults format in migration package"])
         }
-        
         let defaults = UserDefaults.standard
-        
+        let allowFallback = UserDefaults.standard.bool(forKey: Constants.allowUnencryptedFallback)
         // 1. Handle biometric setting (simple)
-        if let biometricEnabled = importedData["biometricEnabled"] as? Bool {
-            defaults.set(biometricEnabled, forKey: "biometricEnabled")
+        if let biometricEnabled = importedData[Constants.biometricEnabled] as? Bool {
+            defaults.set(biometricEnabled, forKey: Constants.biometricEnabled)
         }
-        
         // 2. Handle public PGP key (needs encryption)
-        if let publicKey = importedData["publicPGPKey"] as? String {
+        if let publicKey = importedData[Constants.publicPGPKey] as? String {
             do {
                 // Re-encrypt the key before storing
                 let encryptedKey = try PGPEncryptionManager.shared.encryptStringToBase64(publicKey)
-                defaults.set(encryptedKey, forKey: "publicPGPKey")
+                defaults.set(encryptedKey, forKey: Constants.publicPGPKey)
             } catch {
-                // Fall back to unencrypted if encryption fails
-                defaults.set(publicKey, forKey: "publicPGPKey")
+                if allowFallback {
+                    // Fall back to unencrypted if encryption fails
+                    defaults.set(publicKey, forKey: Constants.publicPGPKey)
+                } else {
+                    print("Refusing to save unencrypted public PGP key due to encryption failure.")
+                }
             }
         }
-        
         // 3. Handle contacts (needs encryption)
-        if let contacts = importedData["savedContacts"] as? [[String: Any]] {
+        if let contacts = importedData[Constants.savedContacts] as? [[String: Any]] {
             do {
                 let contactsObjects = try JSONSerialization.data(withJSONObject: contacts)
                 let contactsList = try JSONDecoder().decode([ContactContacts].self, from: contactsObjects)
-                
                 // Re-encrypt and save
                 let encoder = JSONEncoder()
                 let encodedData = try encoder.encode(contactsList)
                 let key = try getOrCreateContactsEncryptionKey()
                 let encryptedData = try encryptData(encodedData, using: key)
-                defaults.set(encryptedData, forKey: "savedContacts")
+                defaults.set(encryptedData, forKey: Constants.savedContacts)
             } catch {
                 print("Error encrypting imported contacts: \(error)")
-                
-                // Look for fallback encrypted data
-                if let encryptedData = importedData["savedContacts_encrypted"] as? String,
-                   let data = Data(base64Encoded: encryptedData) {
-                    defaults.set(data, forKey: "savedContacts")
+                if allowFallback {
+                    // Look for fallback encrypted data
+                    if let encryptedData = importedData["savedContacts_encrypted"] as? String,
+                       let data = Data(base64Encoded: encryptedData) {
+                        defaults.set(data, forKey: Constants.savedContacts)
+                    }
+                } else {
+                    print("Refusing to save unencrypted contacts due to encryption failure.")
                 }
             }
         }
-        
         // 4. Handle PGP contacts (use the extension setter which handles encryption)
         if let pgpContacts = importedData["contacts"] as? [[String: Any]] {
             do {
@@ -961,25 +958,26 @@ extension SettingsViewController {
                 print("Error importing PGP contacts: \(error)")
             }
         }
-        
         // 5. Handle passwords (needs encryption)
         if let passwords = importedData["savedPasswords"] as? [[String: Any]] {
             do {
                 let passwordsData = try JSONSerialization.data(withJSONObject: passwords)
                 let passwordList = try JSONDecoder().decode([PasswordEntry].self, from: passwordsData)
-                
                 // Re-encrypt and save
                 let encoder = JSONEncoder()
                 let encodedData = try encoder.encode(passwordList)
                 let encryptedData = try PasswordEncryptionManager.shared.encryptData(encodedData)
-                defaults.set(encryptedData, forKey: "savedPasswords")
+                defaults.set(encryptedData, forKey: Constants.savedPasswords)
             } catch {
                 print("Error encrypting imported passwords: \(error)")
-                
-                // Look for fallback encrypted data
-                if let encryptedData = importedData["savedPasswords_encrypted"] as? String,
-                   let data = Data(base64Encoded: encryptedData) {
-                    defaults.set(data, forKey: "savedPasswords")
+                if allowFallback {
+                    // Look for fallback encrypted data
+                    if let encryptedData = importedData["savedPasswords_encrypted"] as? String,
+                       let data = Data(base64Encoded: encryptedData) {
+                        defaults.set(data, forKey: Constants.savedPasswords)
+                    }
+                } else {
+                    print("Refusing to save unencrypted passwords due to encryption failure.")
                 }
             }
         }
@@ -1084,21 +1082,23 @@ extension SettingsViewController {
         
         try context.execute(deleteRequest)
         
+        let allowFallback = UserDefaults.standard.bool(forKey: Constants.allowUnencryptedFallback)
         // Create new notes with the imported data
         for noteDict in notesArray {
             guard let text = noteDict["text"] as? String else { continue }
-            
             let note = Note(context: context)
-            
             // Re-encrypt the note text before saving
             do {
                 let encryptedText = try NoteEncryptionManager.shared.encryptStringToBase64(text)
                 note.text = encryptedText
             } catch {
-                // Fallback to unencrypted if encryption fails
-                note.text = text
+                if allowFallback {
+                    // Fallback to unencrypted if encryption fails
+                    note.text = text
+                } else {
+                    print("Refusing to save unencrypted note due to encryption failure.")
+                }
             }
-            
             // Set created date
             if let timestamp = noteDict["createdAt"] as? TimeInterval {
                 note.createdAt = Date(timeIntervalSince1970: timestamp)
@@ -1106,7 +1106,6 @@ extension SettingsViewController {
                 note.createdAt = Date()
             }
         }
-        
         // Save the context
         CoreDataManager.shared.saveContext()
     }
@@ -1200,6 +1199,7 @@ extension SettingsViewController {
             throw NSError(domain: "com.lockwhisper.migration", code: 2012, userInfo: [NSLocalizedDescriptionKey: "Invalid keychain format in migration package"])
         }
         
+        let allowFallback = UserDefaults.standard.bool(forKey: Constants.allowUnencryptedFallback)
         // Import PGP private key
         if let privateKey = keychainDict["privatePGPKey"] {
             // Re-encrypt the private key before saving
@@ -1207,8 +1207,12 @@ extension SettingsViewController {
                 let encryptedKey = try PGPEncryptionManager.shared.encryptStringToBase64(privateKey)
                 try KeychainHelper.shared.save(key: "privatePGPKey", value: encryptedKey)
             } catch {
-                // Fallback to saving unencrypted if encryption fails
-                try KeychainHelper.shared.save(key: "privatePGPKey", value: privateKey)
+                if allowFallback {
+                    // Fallback to saving unencrypted if encryption fails
+                    try KeychainHelper.shared.save(key: "privatePGPKey", value: privateKey)
+                } else {
+                    print("Refusing to save unencrypted private key due to encryption failure.")
+                }
             }
         } else if let encryptedKey = keychainDict["privatePGPKey_encrypted"] {
             // If we only have the encrypted version, save that
@@ -1270,5 +1274,17 @@ extension SettingsViewController: UIDocumentPickerDelegate {
         } catch {
             showAlert(title: "Import Error", message: "Failed to copy the file: \(error.localizedDescription)")
         }
+    }
+}
+
+// Add delegate conformance
+extension SettingsViewController: ExportPasswordDelegate {
+    func didSetExportPassword(_ password: String) {
+        dismiss(animated: true) {
+            self.performExport(withPassword: password)
+        }
+    }
+    func didCancelExportPassword() {
+        dismiss(animated: true)
     }
 }

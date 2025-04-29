@@ -156,7 +156,6 @@ extension NotepadViewController: NewNoteDelegate {
     func didAddNewNote(_ noteText: String) {
         let context = CoreDataManager.shared.context
         let note = Note(context: context)
-        
         do {
             // Encrypt the text before saving
             let encryptedBase64 = try NoteEncryptionManager.shared.encryptStringToBase64(noteText)
@@ -164,15 +163,27 @@ extension NotepadViewController: NewNoteDelegate {
             note.createdAt = Date()
             CoreDataManager.shared.saveContext()
             notes.append(note)
-            tableView.reloadData()
+            let newIndexPath = IndexPath(row: notes.count - 1, section: 0)
+            tableView.insertRows(at: [newIndexPath], with: .automatic)
         } catch {
             print("Failed to encrypt note: \(error.localizedDescription)")
-            // Fallback to saving unencrypted if encryption fails
-            note.text = noteText
-            note.createdAt = Date()
-            CoreDataManager.shared.saveContext()
-            notes.append(note)
-            tableView.reloadData()
+            let allowFallback = UserDefaults.standard.bool(forKey: "allowUnencryptedFallback")
+            if allowFallback {
+                // Fallback to saving unencrypted if encryption fails
+                note.text = noteText
+                note.createdAt = Date()
+                CoreDataManager.shared.saveContext()
+                notes.append(note)
+                let newIndexPath = IndexPath(row: notes.count - 1, section: 0)
+                tableView.insertRows(at: [newIndexPath], with: .automatic)
+            } else {
+                // Alert the user and refuse to save
+                DispatchQueue.main.async {
+                    let alert = UIAlertController(title: "Encryption Error", message: "Failed to encrypt your note. Your note was NOT saved to prevent unencrypted storage.", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
+            }
         }
     }
 }
@@ -184,19 +195,30 @@ protocol NoteDetailDelegate: AnyObject {
 extension NotepadViewController: NoteDetailDelegate {
     func didUpdateNote(_ noteText: String, at index: Int) {
         let note = notes[index]
-        
         do {
             // Encrypt the text before saving
             let encryptedBase64 = try NoteEncryptionManager.shared.encryptStringToBase64(noteText)
             note.text = encryptedBase64
             CoreDataManager.shared.saveContext()
-            tableView.reloadData()
+            let indexPath = IndexPath(row: index, section: 0)
+            tableView.reloadRows(at: [indexPath], with: .automatic)
         } catch {
             print("Failed to encrypt updated note: \(error.localizedDescription)")
-            // Fallback to saving unencrypted if encryption fails
-            note.text = noteText
-            CoreDataManager.shared.saveContext()
-            tableView.reloadData()
+            let allowFallback = UserDefaults.standard.bool(forKey: "allowUnencryptedFallback")
+            if allowFallback {
+                // Fallback to saving unencrypted if encryption fails
+                note.text = noteText
+                CoreDataManager.shared.saveContext()
+                let indexPath = IndexPath(row: index, section: 0)
+                tableView.reloadRows(at: [indexPath], with: .automatic)
+            } else {
+                // Alert the user and refuse to save
+                DispatchQueue.main.async {
+                    let alert = UIAlertController(title: "Encryption Error", message: "Failed to encrypt your note. Your changes were NOT saved to prevent unencrypted storage.", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
+            }
         }
     }
 }

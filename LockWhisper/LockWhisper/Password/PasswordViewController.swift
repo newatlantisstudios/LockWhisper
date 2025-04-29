@@ -87,18 +87,25 @@ class PasswordViewController: UIViewController {
         let encoder = JSONEncoder()
         do {
             let encodedData = try encoder.encode(passwords)
-            
             // Encrypt the data
             let encryptedData = try PasswordEncryptionManager.shared.encryptData(encodedData)
-            
             // Save the encrypted data
             UserDefaults.standard.set(encryptedData, forKey: passwordsKey)
         } catch {
             print("Error saving passwords: \(error.localizedDescription)")
-            
-            // Fallback to unencrypted storage if encryption fails
-            if let encodedData = try? encoder.encode(passwords) {
-                UserDefaults.standard.set(encodedData, forKey: passwordsKey)
+            let allowFallback = UserDefaults.standard.bool(forKey: "allowUnencryptedFallback")
+            if allowFallback {
+                // Fallback to unencrypted storage if encryption fails
+                if let encodedData = try? encoder.encode(passwords) {
+                    UserDefaults.standard.set(encodedData, forKey: passwordsKey)
+                }
+            } else {
+                // Alert the user and refuse to save
+                DispatchQueue.main.async {
+                    let alert = UIAlertController(title: "Encryption Error", message: "Failed to encrypt your passwords. Your changes were NOT saved to prevent unencrypted storage.", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
             }
         }
     }
@@ -146,11 +153,15 @@ extension PasswordViewController: PasswordDetailViewControllerDelegate {
         if let index = index {
             // Edit existing entry.
             passwords[index] = entry
+            savePasswords()
+            let indexPath = IndexPath(row: index, section: 0)
+            tableView.reloadRows(at: [indexPath], with: .automatic)
         } else {
             // Add new entry.
             passwords.append(entry)
+            savePasswords()
+            let newIndexPath = IndexPath(row: passwords.count - 1, section: 0)
+            tableView.insertRows(at: [newIndexPath], with: .automatic)
         }
-        savePasswords() // Save changes after adding/editing
-        tableView.reloadData()
     }
 }

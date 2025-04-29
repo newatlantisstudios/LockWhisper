@@ -11,6 +11,10 @@ import UIKit
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Set default for global encryption fallback setting (secure by default)
+        if UserDefaults.standard.object(forKey: "allowUnencryptedFallback") == nil {
+            UserDefaults.standard.set(false, forKey: "allowUnencryptedFallback")
+        }
         // Perform data migration if updating from pre-V3 to V3
         performDataMigrationIfNeeded()
         

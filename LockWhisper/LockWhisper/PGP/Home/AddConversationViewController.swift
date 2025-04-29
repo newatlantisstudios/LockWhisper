@@ -205,45 +205,68 @@ extension AddConversationViewController: UIDocumentPickerDelegate {
 
 // MARK: - UserDefaults Extension for PGP Contacts
 extension UserDefaults {
+    private var keychainKey: String { "contacts" }
     var contacts: [ContactPGP] {
         get {
+            // Only use Keychain for normal operation; fallback to UserDefaults only for migration
+            if let data = try? KeychainHelper.shared.get(key: keychainKey),
+               let data = Data(base64Encoded: data) {
+                do {
+                    if PGPEncryptionManager.shared.isEncryptedData(data) {
+                        return try PGPEncryptionManager.shared.decryptContacts(data)
+                    } else {
+                        return try JSONDecoder().decode([ContactPGP].self, from: data)
+                    }
+                } catch {
+                    print("Failed to load contacts from Keychain: \(error.localizedDescription)")
+                    return []
+                }
+            }
+            // Fallback to UserDefaults for migration only
             guard let data = self.data(forKey: "contacts") else { return [] }
             do {
-                // Try to decrypt if the data is encrypted
                 if PGPEncryptionManager.shared.isEncryptedData(data) {
                     return try PGPEncryptionManager.shared.decryptContacts(data)
                 } else {
-                    // Handle legacy unencrypted data
                     return try JSONDecoder().decode([ContactPGP].self, from: data)
                 }
             } catch {
-                print("Failed to load contacts: \(error.localizedDescription)")
+                print("Failed to load contacts from UserDefaults: \(error.localizedDescription)")
                 return []
             }
         }
         set {
             do {
-                // Encrypt the data
                 let encryptedData = try PGPEncryptionManager.shared.encryptContacts(newValue)
-                
-                // Save the encrypted data
-                self.set(encryptedData, forKey: "contacts")
+                let base64 = encryptedData.base64EncodedString()
+                try KeychainHelper.shared.save(key: keychainKey, value: base64)
+                self.removeObject(forKey: "contacts") // Clean up old storage
             } catch {
-                print("Error saving contacts: \(error.localizedDescription)")
-                
-                // Fallback to unencrypted storage if encryption fails
-                if let encodedData = try? JSONEncoder().encode(newValue) {
-                    self.set(encodedData, forKey: "contacts")
+                print("Error saving contacts to Keychain: \(error.localizedDescription)")
+                let allowFallback = UserDefaults.standard.bool(forKey: "allowUnencryptedFallback")
+                if allowFallback {
+                    // No fallback to UserDefaults except for migration
+                } else {
+                    print("Refusing to save unencrypted PGP contacts due to encryption failure.")
                 }
             }
         }
     }
-    
     func migrateContactsIfNeeded() {
-        let contacts = self.contacts
-        // This will trigger migration to encrypted storage if not already encrypted
-        if !contacts.isEmpty {
-            self.contacts = contacts
+        // If contacts exist in UserDefaults but not in Keychain, migrate them
+        if let data = self.data(forKey: "contacts"),
+           (try? KeychainHelper.shared.get(key: keychainKey)) == nil {
+            do {
+                let contacts: [ContactPGP]
+                if PGPEncryptionManager.shared.isEncryptedData(data) {
+                    contacts = try PGPEncryptionManager.shared.decryptContacts(data)
+                } else {
+                    contacts = try JSONDecoder().decode([ContactPGP].self, from: data)
+                }
+                self.contacts = contacts // This will save to Keychain and remove from UserDefaults
+            } catch {
+                print("Failed to migrate contacts to Keychain: \(error)")
+            }
         }
     }
 }
