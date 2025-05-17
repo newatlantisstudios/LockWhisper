@@ -13,10 +13,10 @@ This roadmap outlines planned features and improvements for LockWhisper, organiz
   - [x] Handle app background/foreground transitions
 
 - [ ] Add auto-destruct mechanism
-  - [ ] Track failed unlock attempts
-  - [ ] Configurable attempt limit (3-10)
-  - [ ] Secure data wipe implementation
-  - [ ] Optional recovery mechanism
+  - [x] Track failed unlock attempts
+  - [x] Configurable attempt limit (3-10)
+  - [x] Secure data wipe implementation
+  - [x] Optional recovery mechanism
 
 - [ ] Create fake password system
   - [ ] Secondary password storage in keychain

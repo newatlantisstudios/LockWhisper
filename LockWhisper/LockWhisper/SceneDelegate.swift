@@ -60,6 +60,64 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         logoImageView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(logoImageView)
         
+        // Check failed attempts and show warning if necessary (only if auto-destruct is enabled)
+        let autoDestructEnabled = UserDefaults.standard.bool(forKey: Constants.autoDestructEnabled)
+        let failedAttempts = UserDefaults.standard.integer(forKey: Constants.failedUnlockAttempts)
+        let maxFailedAttempts = UserDefaults.standard.integer(forKey: Constants.maxFailedAttempts)
+        let maxAttempts = maxFailedAttempts > 0 ? maxFailedAttempts : Constants.defaultMaxFailedAttempts
+        let isAutoDestructLocked = UserDefaults.standard.bool(forKey: Constants.autoDestructLocked)
+        
+        if autoDestructEnabled && failedAttempts > 0 && failedAttempts < maxAttempts && !isAutoDestructLocked {
+            let warningLabel = UILabel()
+            warningLabel.text = "⚠️ Warning: \(maxAttempts - failedAttempts) attempts remaining"
+            warningLabel.textColor = .systemRed
+            warningLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+            warningLabel.textAlignment = .center
+            warningLabel.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(warningLabel)
+            
+            NSLayoutConstraint.activate([
+                warningLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                warningLabel.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 20),
+                warningLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+                warningLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
+            ])
+        }
+        
+        // Show recovery option if auto-destruct is locked
+        if isAutoDestructLocked && RecoveryManager.shared.isRecoveryEnabled {
+            let lockedLabel = UILabel()
+            lockedLabel.text = "🔒 Device Locked - Maximum attempts exceeded"
+            lockedLabel.textColor = .systemRed
+            lockedLabel.font = .systemFont(ofSize: 18, weight: .bold)
+            lockedLabel.textAlignment = .center
+            lockedLabel.numberOfLines = 0
+            lockedLabel.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(lockedLabel)
+            
+            let recoveryButton = UIButton(type: .system)
+            recoveryButton.setTitle("Recover Data", for: .normal)
+            recoveryButton.titleLabel?.font = .systemFont(ofSize: 18, weight: .semibold)
+            recoveryButton.backgroundColor = .systemBlue
+            recoveryButton.setTitleColor(.white, for: .normal)
+            recoveryButton.layer.cornerRadius = 10
+            recoveryButton.translatesAutoresizingMaskIntoConstraints = false
+            recoveryButton.addTarget(self, action: #selector(showRecoveryScreen), for: .touchUpInside)
+            view.addSubview(recoveryButton)
+            
+            NSLayoutConstraint.activate([
+                lockedLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                lockedLabel.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 20),
+                lockedLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+                lockedLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+                
+                recoveryButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                recoveryButton.topAnchor.constraint(equalTo: lockedLabel.bottomAnchor, constant: 30),
+                recoveryButton.widthAnchor.constraint(equalToConstant: 200),
+                recoveryButton.heightAnchor.constraint(equalToConstant: 50)
+            ])
+        }
+        
         NSLayoutConstraint.activate([
             logoImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             logoImageView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -100,5 +158,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         
         return rootViewController
+    }
+    
+    @objc private func showRecoveryScreen() {
+        let recoveryVC = RecoveryViewController()
+        let navigationController = UINavigationController(rootViewController: recoveryVC)
+        navigationController.modalPresentationStyle = .fullScreen
+        
+        if let topViewController = getTopViewController() {
+            topViewController.present(navigationController, animated: true)
+        }
     }
 }

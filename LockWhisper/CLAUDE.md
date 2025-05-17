@@ -8,6 +8,76 @@ LockWhisper is a privacy-focused iOS application built with UIKit that provides 
 
 ## Build Commands
 
+### Build Script (Recommended)
+```bash
+# Build the project
+./build_scripts.sh build
+
+# Run tests
+./build_scripts.sh test
+
+# Clean build folder
+./build_scripts.sh clean
+
+# Build release configuration
+./build_scripts.sh release
+
+# Create archive
+./build_scripts.sh archive
+
+# Run static analysis
+./build_scripts.sh analyze
+
+# Generate test coverage
+./build_scripts.sh coverage
+
+# Generate documentation
+./build_scripts.sh docs
+```
+
+### Build Script Options
+```bash
+# Quiet mode (minimal output)
+./build_scripts.sh build -q
+
+# Verbose mode (detailed output)
+./build_scripts.sh build -v
+
+# Without xcbeautify
+./build_scripts.sh build --no-beautify
+
+# Parallel builds
+./build_scripts.sh build --parallel
+
+# Clean derived data before building
+./build_scripts.sh build --clean-derived
+
+# Specific simulator
+./build_scripts.sh test --simulator "iPhone 14 Pro"
+
+# Different scheme
+./build_scripts.sh build --scheme "LockWhisper-Dev"
+```
+
+### Alternative Build Methods
+```bash
+# Using Makefile
+make build
+make test
+make clean
+make release
+make quiet-build
+make raw-build
+
+# Using npm scripts
+npm run build
+npm run test
+npm run clean
+npm run build:quiet
+npm run test:raw
+```
+
+### Direct xcodebuild Commands
 ```bash
 # Build the project
 xcodebuild -project LockWhisper.xcodeproj -scheme LockWhisper -configuration Debug build

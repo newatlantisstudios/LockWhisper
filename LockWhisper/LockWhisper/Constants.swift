@@ -10,6 +10,12 @@ struct Constants {
     static let allowUnencryptedFallback = "allowUnencryptedFallback"
     static let biometricCheckInterval = "biometricCheckInterval"
     static let lastBiometricAuthTime = "lastBiometricAuthTime"
+    static let failedUnlockAttempts = "failedUnlockAttempts"
+    static let autoDestructLocked = "autoDestructLocked"
+    static let maxFailedAttempts = "maxFailedAttempts" // Key for configurable max failed attempts
+    static let defaultMaxFailedAttempts = 5 // Default value if not configured
+    static let autoDestructEnabled = "autoDestructEnabled"
+    static let autoDestructToggleTimer = 30 // Seconds to wait before toggle takes effect
 
     // Keychain Keys
     static let privatePGPKey = "privatePGPKey"
@@ -39,4 +45,17 @@ struct Constants {
     static let notesDecryptedFile = "notes_decrypted.json"
     static let keychainItemsFile = "keychain_items.json"
     static let userDefaultsDecryptedFile = "user_defaults_decrypted.json"
+    
+    // Remote Wipe
+    static let remoteWipeEnabled = "remoteWipeEnabled"
+    
+    // Recovery Mechanism
+    static let recoveryEnabled = "recoveryEnabled"
+    static let recoveryTimeWindow = "recoveryTimeWindow"
+    static let recoveryPINHash = "recoveryPINHash"
+    static let encryptedPGPConversations = "encryptedPGPConversations"
+    static let encryptedPasswordsKey = "encryptedPasswordsKey"
+    static let encryptedContactsKey = "encryptedContactsKey"
+    static let remoteWipePIN = "remoteWipePIN"
+    static let remoteWipeAttempts = "remoteWipeAttempts"
 }

@@ -60,6 +60,11 @@ class StyledButton: UIButton {
             ]
         case .warning:
             gradientLayer.colors = [
+                UIColor.systemOrange.withAlphaComponent(0.9).cgColor,
+                UIColor.systemOrange.cgColor
+            ]
+        case .destructive:
+            gradientLayer.colors = [
                 UIColor.systemRed.withAlphaComponent(0.9).cgColor,
                 UIColor.systemRed.cgColor
             ]
@@ -87,4 +92,5 @@ enum ButtonStyle {
     case primary
     case secondary
     case warning
+    case destructive
 }

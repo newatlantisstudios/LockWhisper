@@ -36,6 +36,41 @@ class SettingsViewController: UIViewController {
         return fallbackSwitch
     }()
     
+    // A switch to toggle auto-destruct
+    private let autoDestructSwitch: UISwitch = {
+        let autoDestructSwitch = UISwitch()
+        autoDestructSwitch.translatesAutoresizingMaskIntoConstraints = false
+        autoDestructSwitch.isOn = UserDefaults.standard.bool(forKey: Constants.autoDestructEnabled)
+        return autoDestructSwitch
+    }()
+    
+    // Timer properties for auto-destruct toggle
+    private var autoDestructTimer: Timer?
+    private var timerLabel: UILabel?
+    private var cancelButton: UIButton?
+    
+    // Stepper for attempt limit
+    private let attemptLimitStepper: UIStepper = {
+        let stepper = UIStepper()
+        stepper.translatesAutoresizingMaskIntoConstraints = false
+        stepper.minimumValue = 3
+        stepper.maximumValue = 10
+        stepper.stepValue = 1
+        let savedValue = UserDefaults.standard.integer(forKey: Constants.maxFailedAttempts)
+        stepper.value = Double(savedValue > 0 ? savedValue : Constants.defaultMaxFailedAttempts)
+        return stepper
+    }()
+    
+    private let attemptLimitLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = UIFont.systemFont(ofSize: 16)
+        let savedValue = UserDefaults.standard.integer(forKey: Constants.maxFailedAttempts)
+        let currentValue = savedValue > 0 ? savedValue : Constants.defaultMaxFailedAttempts
+        label.text = "\(currentValue) attempts"
+        return label
+    }()
+    
     // A segmented control for biometric check intervals
     private let biometricIntervalControl: UISegmentedControl = {
         let items = ["Never", "5 min", "10 min", "30 min", "1 hr"]
@@ -149,6 +184,9 @@ class SettingsViewController: UIViewController {
         
         // Initially hide interval control if biometric is disabled
         updateBiometricIntervalVisibility()
+        
+        // Add auto-destruct toggle
+        setupAutoDestructToggle()
     }
     
     // MARK: - Actions
@@ -180,6 +218,226 @@ class SettingsViewController: UIViewController {
         let isBiometricEnabled = UserDefaults.standard.bool(forKey: Constants.biometricEnabled)
         biometricIntervalControl.isEnabled = isBiometricEnabled
         biometricIntervalControl.alpha = isBiometricEnabled ? 1.0 : 0.5
+    }
+    
+    // MARK: - Auto-Destruct Setup
+    
+    private func setupAutoDestructToggle() {
+        let autoDestructLabel = UILabel()
+        let savedValue = UserDefaults.standard.integer(forKey: Constants.maxFailedAttempts)
+        let currentValue = savedValue > 0 ? savedValue : Constants.defaultMaxFailedAttempts
+        autoDestructLabel.text = "Enable Auto-Destruct (\(currentValue) Failed Attempts)"
+        autoDestructLabel.font = UIFont.systemFont(ofSize: 16)
+        autoDestructLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(autoDestructLabel)
+        view.addSubview(autoDestructSwitch)
+        
+        autoDestructSwitch.addTarget(self, action: #selector(autoDestructSwitchToggled(_:)), for: .valueChanged)
+        
+        NSLayoutConstraint.activate([
+            autoDestructLabel.topAnchor.constraint(equalTo: biometricIntervalControl.bottomAnchor, constant: 24),
+            autoDestructLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            
+            autoDestructSwitch.centerYAnchor.constraint(equalTo: autoDestructLabel.centerYAnchor),
+            autoDestructSwitch.leadingAnchor.constraint(equalTo: autoDestructLabel.trailingAnchor, constant: 16)
+        ])
+        
+        // Add attempt limit controls
+        let attemptLimitContainer = UIView()
+        attemptLimitContainer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(attemptLimitContainer)
+        
+        let attemptLimitDescLabel = UILabel()
+        attemptLimitDescLabel.text = "Failed Attempts Limit:"
+        attemptLimitDescLabel.font = UIFont.systemFont(ofSize: 16)
+        attemptLimitDescLabel.translatesAutoresizingMaskIntoConstraints = false
+        attemptLimitContainer.addSubview(attemptLimitDescLabel)
+        
+        attemptLimitContainer.addSubview(attemptLimitLabel)
+        attemptLimitContainer.addSubview(attemptLimitStepper)
+        
+        attemptLimitStepper.addTarget(self, action: #selector(attemptLimitStepperChanged(_:)), for: .valueChanged)
+        
+        NSLayoutConstraint.activate([
+            attemptLimitContainer.topAnchor.constraint(equalTo: autoDestructLabel.bottomAnchor, constant: 16),
+            attemptLimitContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            attemptLimitContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            attemptLimitContainer.heightAnchor.constraint(equalToConstant: 44),
+            
+            attemptLimitDescLabel.centerYAnchor.constraint(equalTo: attemptLimitContainer.centerYAnchor),
+            attemptLimitDescLabel.leadingAnchor.constraint(equalTo: attemptLimitContainer.leadingAnchor),
+            
+            attemptLimitLabel.centerYAnchor.constraint(equalTo: attemptLimitContainer.centerYAnchor),
+            attemptLimitLabel.trailingAnchor.constraint(equalTo: attemptLimitStepper.leadingAnchor, constant: -8),
+            
+            attemptLimitStepper.centerYAnchor.constraint(equalTo: attemptLimitContainer.centerYAnchor),
+            attemptLimitStepper.trailingAnchor.constraint(equalTo: attemptLimitContainer.trailingAnchor)
+        ])
+        
+        // Initially hide attempt limit controls if auto-destruct is disabled
+        updateAutoDestructControlsVisibility()
+        
+        // Create timer label (initially hidden)
+        timerLabel = UILabel()
+        timerLabel?.text = ""
+        timerLabel?.font = UIFont.systemFont(ofSize: 14)
+        timerLabel?.textColor = .systemRed
+        timerLabel?.translatesAutoresizingMaskIntoConstraints = false
+        timerLabel?.isHidden = true
+        
+        // Create cancel button (initially hidden)
+        cancelButton = UIButton(type: .system)
+        cancelButton?.setTitle("Cancel", for: .normal)
+        cancelButton?.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        cancelButton?.setTitleColor(.systemRed, for: .normal)
+        cancelButton?.translatesAutoresizingMaskIntoConstraints = false
+        cancelButton?.isHidden = true
+        cancelButton?.addTarget(self, action: #selector(cancelTimerTapped), for: .touchUpInside)
+        
+        if let timerLabel = timerLabel, let cancelButton = cancelButton {
+            view.addSubview(timerLabel)
+            view.addSubview(cancelButton)
+            
+            NSLayoutConstraint.activate([
+                timerLabel.topAnchor.constraint(equalTo: attemptLimitContainer.bottomAnchor, constant: 8),
+                timerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+                
+                cancelButton.topAnchor.constraint(equalTo: attemptLimitContainer.bottomAnchor, constant: 8),
+                cancelButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+            ])
+        }
+    }
+    
+    @objc private func autoDestructSwitchToggled(_ sender: UISwitch) {
+        // Cancel any existing timer
+        autoDestructTimer?.invalidate()
+        autoDestructTimer = nil
+        
+        // Update visibility of attempt limit controls
+        updateAutoDestructControlsVisibility()
+        
+        // Show confirmation dialog
+        let currentLimit = Int(attemptLimitStepper.value)
+        let title = sender.isOn ? "Enable Auto-Destruct?" : "Disable Auto-Destruct?"
+        let message = sender.isOn 
+            ? "This will permanently wipe all app data after \(currentLimit) failed unlock attempts. This action will take effect in 30 seconds."
+            : "This will disable the auto-destruct security feature. This action will take effect in 30 seconds."
+        
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            // Revert the switch
+            sender.isOn = !sender.isOn
+            self?.hideTimerElements()
+        })
+        
+        alert.addAction(UIAlertAction(title: "Confirm", style: sender.isOn ? .destructive : .default) { [weak self] _ in
+            self?.startAutoDestructTimer(enabling: sender.isOn)
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    private func startAutoDestructTimer(enabling: Bool) {
+        // Disable the switch during countdown
+        autoDestructSwitch.isEnabled = false
+        
+        // Show timer elements
+        timerLabel?.isHidden = false
+        cancelButton?.isHidden = false
+        
+        var secondsRemaining = Constants.autoDestructToggleTimer
+        updateTimerLabel(seconds: secondsRemaining)
+        
+        autoDestructTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            secondsRemaining -= 1
+            
+            if secondsRemaining <= 0 {
+                timer.invalidate()
+                self?.completeAutoDestructToggle(enabling: enabling)
+            } else {
+                self?.updateTimerLabel(seconds: secondsRemaining)
+            }
+        }
+    }
+    
+    private func updateTimerLabel(seconds: Int) {
+        timerLabel?.text = "Changes will take effect in \(seconds) seconds..."
+    }
+    
+    private func completeAutoDestructToggle(enabling: Bool) {
+        // Save the new state
+        UserDefaults.standard.set(enabling, forKey: Constants.autoDestructEnabled)
+        
+        // Re-enable the switch
+        autoDestructSwitch.isEnabled = true
+        
+        // Hide timer elements
+        hideTimerElements()
+        
+        // Show success message
+        let message = enabling ? "Auto-destruct has been enabled" : "Auto-destruct has been disabled"
+        showAlert(title: "Success", message: message)
+    }
+    
+    @objc private func cancelTimerTapped() {
+        // Cancel the timer
+        autoDestructTimer?.invalidate()
+        autoDestructTimer = nil
+        
+        // Revert the switch
+        autoDestructSwitch.isOn = !autoDestructSwitch.isOn
+        
+        // Re-enable the switch
+        autoDestructSwitch.isEnabled = true
+        
+        // Hide timer elements
+        hideTimerElements()
+    }
+    
+    private func hideTimerElements() {
+        timerLabel?.isHidden = true
+        timerLabel?.text = ""
+        cancelButton?.isHidden = true
+    }
+    
+    private func showAlert(title: String, message: String, completion: (() -> Void)? = nil) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+            completion?()
+        })
+        present(alert, animated: true)
+    }
+    
+    @objc private func attemptLimitStepperChanged(_ sender: UIStepper) {
+        let newValue = Int(sender.value)
+        attemptLimitLabel.text = "\(newValue) attempts"
+        UserDefaults.standard.set(newValue, forKey: Constants.maxFailedAttempts)
+        
+        // Update the auto-destruct label text
+        let autoDestructLabel = view.subviews.first(where: { subview in
+            if let label = subview as? UILabel, label.text?.contains("Enable Auto-Destruct") ?? false {
+                return true
+            }
+            return false
+        }) as? UILabel
+        autoDestructLabel?.text = "Enable Auto-Destruct (\(newValue) Failed Attempts)"
+    }
+    
+    private func updateAutoDestructControlsVisibility() {
+        let isEnabled = autoDestructSwitch.isOn
+        attemptLimitStepper.isEnabled = isEnabled
+        attemptLimitStepper.alpha = isEnabled ? 1.0 : 0.5
+        attemptLimitLabel.alpha = isEnabled ? 1.0 : 0.5
+        
+        if let container = attemptLimitStepper.superview {
+            container.subviews.forEach { subview in
+                if let label = subview as? UILabel {
+                    label.alpha = isEnabled ? 1.0 : 0.5
+                }
+            }
+        }
     }
 }
 
@@ -216,7 +474,7 @@ extension SettingsViewController {
         
         // Position the migration section below the biometric interval control
         NSLayoutConstraint.activate([
-            migrationLabel.topAnchor.constraint(equalTo: biometricIntervalControl.bottomAnchor, constant: 40),
+            migrationLabel.topAnchor.constraint(equalTo: biometricIntervalControl.bottomAnchor, constant: 120),
             migrationLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             migrationLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             
@@ -230,6 +488,83 @@ extension SettingsViewController {
             importButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             importButton.heightAnchor.constraint(equalToConstant: 44)
         ])
+        
+        // Add emergency wipe button
+        setupEmergencyWipeButton()
+    }
+    
+    private func setupEmergencyWipeButton() {
+        // Create emergency wipe section label
+        let emergencyLabel = UILabel()
+        emergencyLabel.text = "Emergency Options"
+        emergencyLabel.font = UIFont.systemFont(ofSize: 18, weight: .bold)
+        emergencyLabel.textColor = .systemRed
+        emergencyLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create emergency wipe button
+        let emergencyWipeButton = StyledButton()
+        emergencyWipeButton.setTitle("Emergency Data Wipe", for: .normal)
+        emergencyWipeButton.setStyle(.destructive)
+        emergencyWipeButton.addTarget(self, action: #selector(emergencyWipeTapped), for: .touchUpInside)
+        emergencyWipeButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add views
+        view.addSubview(emergencyLabel)
+        view.addSubview(emergencyWipeButton)
+        
+        // Get reference to import button
+        let importButton = view.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Import App Data" })
+        
+        // Position emergency section below import button
+        NSLayoutConstraint.activate([
+            emergencyLabel.topAnchor.constraint(equalTo: importButton?.bottomAnchor ?? view.bottomAnchor, constant: 40),
+            emergencyLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            emergencyLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            emergencyWipeButton.topAnchor.constraint(equalTo: emergencyLabel.bottomAnchor, constant: 16),
+            emergencyWipeButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            emergencyWipeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            emergencyWipeButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        // Add recovery settings button
+        setupRecoverySettings()
+    }
+    
+    private func setupRecoverySettings() {
+        // Create recovery settings button
+        let recoveryButton = StyledButton()
+        recoveryButton.setTitle("Recovery Settings", for: .normal)
+        recoveryButton.setStyle(.secondary)
+        recoveryButton.addTarget(self, action: #selector(recoverySettingsTapped), for: .touchUpInside)
+        recoveryButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add view
+        view.addSubview(recoveryButton)
+        
+        // Get reference to emergency wipe button
+        let emergencyWipeButton = view.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Emergency Data Wipe" })
+        
+        // Position recovery button below emergency wipe button
+        NSLayoutConstraint.activate([
+            recoveryButton.topAnchor.constraint(equalTo: emergencyWipeButton?.bottomAnchor ?? view.bottomAnchor, constant: 12),
+            recoveryButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            recoveryButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            recoveryButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+    
+    @objc private func recoverySettingsTapped() {
+        let recoverySettingsVC = RecoverySettingsViewController()
+        navigationController?.pushViewController(recoverySettingsVC, animated: true)
+    }
+    
+    // MARK: - Emergency Wipe
+    
+    @objc private func emergencyWipeTapped() {
+        let emergencyWipeVC = EmergencyWipeViewController()
+        emergencyWipeVC.modalPresentationStyle = .formSheet
+        present(emergencyWipeVC, animated: true)
     }
     
     // MARK: - Export Data
@@ -1288,14 +1623,7 @@ extension SettingsViewController {
     }
     
     // MARK: - Helper Methods
-    
-    private func showAlert(title: String, message: String, completion: (() -> Void)? = nil) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-            completion?()
-        })
-        present(alert, animated: true)
-    }
+    // showAlert method is already defined above
 }
 
 // MARK: - UIDocumentPickerDelegate
