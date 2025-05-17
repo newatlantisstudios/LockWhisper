@@ -8,6 +8,8 @@ struct Constants {
     static let savedContacts = "savedContacts"
     static let savedPasswords = "savedPasswords"
     static let allowUnencryptedFallback = "allowUnencryptedFallback"
+    static let biometricCheckInterval = "biometricCheckInterval"
+    static let lastBiometricAuthTime = "lastBiometricAuthTime"
 
     // Keychain Keys
     static let privatePGPKey = "privatePGPKey"

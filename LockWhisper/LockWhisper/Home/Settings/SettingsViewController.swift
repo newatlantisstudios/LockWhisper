@@ -36,6 +36,24 @@ class SettingsViewController: UIViewController {
         return fallbackSwitch
     }()
     
+    // A segmented control for biometric check intervals
+    private let biometricIntervalControl: UISegmentedControl = {
+        let items = ["Never", "5 min", "10 min", "30 min", "1 hr"]
+        let control = UISegmentedControl(items: items)
+        control.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Set default interval: 0=Never, 1=5min, 2=10min, 3=30min, 4=1hr
+        let savedInterval = UserDefaults.standard.integer(forKey: Constants.biometricCheckInterval)
+        let intervals = [0, 5, 10, 30, 60]
+        if let index = intervals.firstIndex(of: savedInterval) {
+            control.selectedSegmentIndex = index
+        } else {
+            control.selectedSegmentIndex = 0 // Default to "Never"
+        }
+        
+        return control
+    }()
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -109,6 +127,28 @@ class SettingsViewController: UIViewController {
             fallbackSwitch.centerYAnchor.constraint(equalTo: fallbackLabel.centerYAnchor),
             fallbackSwitch.leadingAnchor.constraint(equalTo: fallbackLabel.trailingAnchor, constant: 16)
         ])
+        
+        // Add biometric check interval controls
+        let intervalLabel = UILabel()
+        intervalLabel.text = "Re-authentication Interval"
+        intervalLabel.font = UIFont.systemFont(ofSize: 16)
+        intervalLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(intervalLabel)
+        view.addSubview(biometricIntervalControl)
+        biometricIntervalControl.addTarget(self, action: #selector(biometricIntervalChanged(_:)), for: .valueChanged)
+        
+        NSLayoutConstraint.activate([
+            intervalLabel.topAnchor.constraint(equalTo: fallbackLabel.bottomAnchor, constant: 24),
+            intervalLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            intervalLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            biometricIntervalControl.topAnchor.constraint(equalTo: intervalLabel.bottomAnchor, constant: 12),
+            biometricIntervalControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            biometricIntervalControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+        ])
+        
+        // Initially hide interval control if biometric is disabled
+        updateBiometricIntervalVisibility()
     }
     
     // MARK: - Actions
@@ -120,10 +160,26 @@ class SettingsViewController: UIViewController {
     
     @objc private func biometricSwitchToggled(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: Constants.biometricEnabled)
+        updateBiometricIntervalVisibility()
     }
     
     @objc private func fallbackSwitchToggled(_ sender: UISwitch) {
         UserDefaults.standard.set(sender.isOn, forKey: Constants.allowUnencryptedFallback)
+    }
+    
+    @objc private func biometricIntervalChanged(_ sender: UISegmentedControl) {
+        let intervals = [0, 5, 10, 30, 60] // In minutes
+        let selectedInterval = intervals[sender.selectedSegmentIndex]
+        UserDefaults.standard.set(selectedInterval, forKey: Constants.biometricCheckInterval)
+        
+        // Clear last auth time when interval changes
+        UserDefaults.standard.removeObject(forKey: Constants.lastBiometricAuthTime)
+    }
+    
+    private func updateBiometricIntervalVisibility() {
+        let isBiometricEnabled = UserDefaults.standard.bool(forKey: Constants.biometricEnabled)
+        biometricIntervalControl.isEnabled = isBiometricEnabled
+        biometricIntervalControl.alpha = isBiometricEnabled ? 1.0 : 0.5
     }
 }
 
@@ -158,16 +214,9 @@ extension SettingsViewController {
         view.addSubview(exportButton)
         view.addSubview(importButton)
         
-        // Position the migration section below the biometric switch section
-        let referenceBiometricLabel = view.subviews.first { subview in
-            if let label = subview as? UILabel, label.text == "Enable Biometric Authentication" {
-                return true
-            }
-            return false
-        }
-        
+        // Position the migration section below the biometric interval control
         NSLayoutConstraint.activate([
-            migrationLabel.topAnchor.constraint(equalTo: referenceBiometricLabel?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 40),
+            migrationLabel.topAnchor.constraint(equalTo: biometricIntervalControl.bottomAnchor, constant: 40),
             migrationLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             migrationLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             

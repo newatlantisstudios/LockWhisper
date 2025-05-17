@@ -27,6 +27,11 @@ class NotepadViewController: UIViewController {
         fetchNotes()
     }
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        BiometricAuthManager.shared.authenticateIfNeeded(from: self)
+    }
+    
     private func setupTableView() {
         view.addSubview(tableView)
         tableView.dataSource = self

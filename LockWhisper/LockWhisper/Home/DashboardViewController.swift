@@ -73,31 +73,7 @@ class DashboardViewController: UIViewController {
     // MARK: - Biometric Authentication
     
     private func checkBiometricAuthentication() {
-        // Retrieve the user's preference. Defaults to false if not set.
-        let biometricEnabled = UserDefaults.standard.bool(forKey: "biometricEnabled")
-        guard biometricEnabled else { return }
-        
-        let context = LAContext()
-        var error: NSError?
-        
-        // Check if biometric authentication is available.
-        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics,
-                                   localizedReason: "Authenticate to access the app") { [weak self] success, authError in
-                DispatchQueue.main.async {
-                    if success {
-                        // Authentication was successful; proceed as normal.
-                    } else {
-                        // Authentication failed. You might choose to handle this case further (e.g., lock the app).
-                        let alert = UIAlertController(title: "Authentication Failed", message: "Biometric authentication was not successful. Please try again.", preferredStyle: .alert)
-                        alert.addAction(UIAlertAction(title: "OK", style: .default))
-                        self?.present(alert, animated: true)
-                    }
-                }
-            }
-        } else {
-            print("Biometric authentication not available: \(error?.localizedDescription ?? "Unknown error").")
-        }
+        BiometricAuthManager.shared.authenticateIfNeeded(from: self)
     }
     
     // MARK: - Actions
