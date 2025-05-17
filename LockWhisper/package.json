@@ -1,0 +1,37 @@
+{
+  "name": "lockwhisper",
+  "version": "4.1.0",
+  "description": "LockWhisper iOS Application Build Scripts",
+  "scripts": {
+    "build": "./build_scripts.sh build",
+    "build:quiet": "./build_scripts.sh build -q",
+    "build:raw": "./build_scripts.sh build --no-beautify",
+    "test": "./build_scripts.sh test",
+    "test:quiet": "./build_scripts.sh test -q",
+    "test:raw": "./build_scripts.sh test --no-beautify",
+    "clean": "./build_scripts.sh clean",
+    "clean:quiet": "./build_scripts.sh clean -q",
+    "release": "./build_scripts.sh release",
+    "release:quiet": "./build_scripts.sh release -q",
+    "archive": "./build_scripts.sh archive",
+    "archive:quiet": "./build_scripts.sh archive -q",
+    "make:build": "make build",
+    "make:test": "make test",
+    "make:clean": "make clean",
+    "make:release": "make release",
+    "make:quiet-build": "make quiet-build",
+    "make:quiet-test": "make quiet-test",
+    "make:raw-build": "make raw-build",
+    "make:raw-test": "make raw-test",
+    "postinstall": "command -v xcbeautify >/dev/null 2>&1 || echo 'Warning: xcbeautify is not installed. Run: brew install xcbeautify'"
+  },
+  "keywords": [
+    "ios",
+    "swift",
+    "xcode",
+    "lockwhisper"
+  ],
+  "author": "LockWhisper Team",
+  "license": "MIT",
+  "private": true
+}

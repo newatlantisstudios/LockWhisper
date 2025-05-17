@@ -1,0 +1,67 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Select Xcode
+      run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+    
+    - name: Install xcbeautify
+      run: brew install xcbeautify
+      
+    - name: Make build script executable
+      working-directory: ./LockWhisper
+      run: chmod +x build_scripts.sh
+    
+    - name: Build Debug
+      working-directory: ./LockWhisper
+      run: ./build_scripts.sh build -q
+    
+    - name: Run Tests
+      working-directory: ./LockWhisper
+      run: ./build_scripts.sh test -q
+    
+    - name: Build Release
+      working-directory: ./LockWhisper
+      run: ./build_scripts.sh release -q
+    
+    # Alternative using Makefile
+    # - name: Build with Make
+    #   working-directory: ./LockWhisper
+    #   run: make quiet-build
+    
+    # - name: Test with Make
+    #   working-directory: ./LockWhisper
+    #   run: make quiet-test
+
+  code-quality:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Select Xcode
+      run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+    
+    - name: Clean Build
+      working-directory: ./LockWhisper
+      run: make quiet-clean
+    
+    - name: Analyze
+      working-directory: ./LockWhisper
+      run: |
+        xcodebuild analyze \
+          -project LockWhisper.xcodeproj \
+          -scheme LockWhisper \
+          -configuration Debug \
+          -quiet
