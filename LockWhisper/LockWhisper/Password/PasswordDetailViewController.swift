@@ -43,6 +43,17 @@ class PasswordDetailViewController: UIViewController {
         return button
     }()
     
+    // Generate password button
+    let generatePasswordButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Generate", for: .normal)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.layer.cornerRadius = 5
+        button.backgroundColor = .systemBlue
+        button.setTitleColor(.white, for: .normal)
+        return button
+    }()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
@@ -58,6 +69,9 @@ class PasswordDetailViewController: UIViewController {
         
         // Add target to toggle password visibility
         togglePasswordButton.addTarget(self, action: #selector(togglePasswordVisibility), for: .touchUpInside)
+        
+        // Add target to generate password
+        generatePasswordButton.addTarget(self, action: #selector(generatePasswordTapped), for: .touchUpInside)
     }
     
     private func setupNavigationBar() {
@@ -73,6 +87,7 @@ class PasswordDetailViewController: UIViewController {
         view.addSubview(titleTextField)
         view.addSubview(passwordTextField)
         view.addSubview(togglePasswordButton)
+        view.addSubview(generatePasswordButton)
         
         NSLayoutConstraint.activate([
             titleTextField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
@@ -87,13 +102,25 @@ class PasswordDetailViewController: UIViewController {
             
             togglePasswordButton.centerYAnchor.constraint(equalTo: passwordTextField.centerYAnchor),
             togglePasswordButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            togglePasswordButton.widthAnchor.constraint(equalToConstant: 60)
+            togglePasswordButton.widthAnchor.constraint(equalToConstant: 60),
+            
+            generatePasswordButton.topAnchor.constraint(equalTo: passwordTextField.bottomAnchor, constant: 15),
+            generatePasswordButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            generatePasswordButton.widthAnchor.constraint(equalToConstant: 120),
+            generatePasswordButton.heightAnchor.constraint(equalToConstant: 40)
         ])
     }
     
     @objc private func togglePasswordVisibility() {
         passwordTextField.isSecureTextEntry.toggle()
         togglePasswordButton.setTitle(passwordTextField.isSecureTextEntry ? "Show" : "Hide", for: .normal)
+    }
+    
+    @objc private func generatePasswordTapped() {
+        let generatorVC = PasswordGeneratorViewController()
+        generatorVC.delegate = self
+        let navController = UINavigationController(rootViewController: generatorVC)
+        present(navController, animated: true)
     }
     
     @objc private func saveTapped() {
@@ -110,5 +137,12 @@ class PasswordDetailViewController: UIViewController {
         // Call the delegate to handle adding/updating.
         delegate?.didSavePassword(entry: newEntry, at: entryIndex)
         navigationController?.popViewController(animated: true)
+    }
+}
+
+// MARK: - PasswordGeneratorDelegate
+extension PasswordDetailViewController: PasswordGeneratorDelegate {
+    func didSelectPassword(_ password: String) {
+        passwordTextField.text = password
     }
 }

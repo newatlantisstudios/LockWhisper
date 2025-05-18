@@ -25,23 +25,11 @@ This roadmap outlines planned features and improvements for LockWhisper, organiz
 **Timeline: 1-2 months**
 
 ### TODO:
-- [ ] Enhanced password generator
-  - [ ] Pronounceable password option
-  - [ ] Custom character sets
-  - [ ] Pattern-based generation
-  - [ ] Strength meter integration
-
-- [ ] Quick actions
-  - [ ] Copy password without opening detail
-  - [ ] Long-press context menus
-  - [ ] Swipe to delete
-  - [ ] 3D Touch support (older devices)
-
-- [ ] Import/Export functionality
-  - [ ] CSV import parser
-  - [ ] JSON format support
-  - [ ] Batch import UI
-  - [ ] Export with encryption
+- [x] Enhanced password generator
+  - [x] Pronounceable password option
+  - [x] Custom character sets
+  - [x] Pattern-based generation
+  - [x] Strength meter integration
 
 ## Phase 3: Organization & Search
 **Timeline: 1-2 months**
