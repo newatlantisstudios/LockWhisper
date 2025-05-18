@@ -23,7 +23,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         removeSecurityView()
         
         // Check if authentication is required
-        if BiometricAuthManager.shared.shouldRequireAuthentication() {
+        if shouldRequireAuthentication() {
             authenticateUser()
         }
     }
@@ -43,6 +43,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from foreground to background.
         // Ensure security view is shown
         showSecurityView()
+    }
+    
+    // MARK: - Authentication Methods
+    
+    private func shouldRequireAuthentication() -> Bool {
+        // Check if we have a real password set
+        let hasRealPassword = FakePasswordManager.shared.getStoredPassword(for: Constants.realPasswordService, account: Constants.realPasswordAccount) != nil
+        
+        // If no real password is set, use biometric only
+        if !hasRealPassword {
+            return BiometricAuthManager.shared.shouldRequireAuthentication()
+        }
+        
+        // If we have a password system, always require authentication on app launch
+        return true
     }
     
     // MARK: - Security View Methods
@@ -140,12 +155,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Show security view while authenticating
         showSecurityView()
         
-        BiometricAuthManager.shared.authenticateIfNeeded(from: topViewController) { [weak self] success in
-            if success {
-                self?.removeSecurityView()
-            } else {
-                // Keep the security view if authentication fails
-                // The user will need to manually authenticate when they return to the app
+        // Check if password is set
+        let hasRealPassword = FakePasswordManager.shared.getStoredPassword(for: Constants.realPasswordService, account: Constants.realPasswordAccount) != nil
+        
+        if hasRealPassword {
+            // Use password authentication
+            let passwordAuthVC = PasswordAuthenticationViewController { [weak self] success in
+                if success {
+                    self?.removeSecurityView()
+                } else {
+                    // Keep the security view if authentication fails
+                }
+            }
+            passwordAuthVC.modalPresentationStyle = .fullScreen
+            topViewController.present(passwordAuthVC, animated: false)
+        } else {
+            // Fall back to biometric authentication only
+            BiometricAuthManager.shared.authenticateIfNeeded(from: topViewController) { [weak self] success in
+                if success {
+                    self?.removeSecurityView()
+                } else {
+                    // Keep the security view if authentication fails
+                }
             }
         }
     }

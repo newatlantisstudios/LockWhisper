@@ -58,4 +58,11 @@ struct Constants {
     static let encryptedContactsKey = "encryptedContactsKey"
     static let remoteWipePIN = "remoteWipePIN"
     static let remoteWipeAttempts = "remoteWipeAttempts"
+    
+    // Fake Password System
+    static let fakePasswordEnabled = "fakePasswordEnabled"
+    static let fakePasswordService = "com.lockwhisper.fakepassword"
+    static let fakePasswordAccount = "fakePasswordHash"
+    static let realPasswordService = "com.lockwhisper.realpassword"
+    static let realPasswordAccount = "realPasswordHash"
 }

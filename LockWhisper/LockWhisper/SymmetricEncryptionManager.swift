@@ -9,9 +9,17 @@ public protocol KeychainManager {
     func delete(account: String) throws
 }
 
+// MARK: - SymmetricEncryptionManagerProtocol
+
+public protocol SymmetricEncryptionManagerProtocol {
+    func encryptData(_ data: Data) throws -> Data
+    func decryptData(_ encryptedData: Data) throws -> Data
+    func isEncryptedData(_ data: Data) -> Bool
+}
+
 // MARK: - SymmetricEncryptionManager
 
-public class SymmetricEncryptionManager<KM: KeychainManager> {
+public class SymmetricEncryptionManager<KM: KeychainManager>: SymmetricEncryptionManagerProtocol {
     public let keychainManager: KM
     public let keychainId: String
 

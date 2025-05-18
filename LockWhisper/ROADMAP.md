@@ -11,18 +11,15 @@ This roadmap outlines planned features and improvements for LockWhisper, organiz
   - [x] Add biometric check timer in settings
   - [x] Force re-auth after configurable timeout
   - [x] Handle app background/foreground transitions
-
-- [ ] Add auto-destruct mechanism
+- [x] Add auto-destruct mechanism
   - [x] Track failed unlock attempts
   - [x] Configurable attempt limit (3-10)
   - [x] Secure data wipe implementation
   - [x] Optional recovery mechanism
-
-- [ ] Create fake password system
-  - [ ] Secondary password storage in keychain
-  - [ ] Decoy data structure
-  - [ ] Seamless UI switching between real/fake data
-  - [ ] Settings for decoy configuration
+- [x] Create fake password system
+  - [x] Secondary password storage in keychain
+  - [x] Decoy data structure
+  - [x] Seamless UI switching between real/fake data
 
 ## Phase 2: Password Management Improvements
 **Timeline: 1-2 months**

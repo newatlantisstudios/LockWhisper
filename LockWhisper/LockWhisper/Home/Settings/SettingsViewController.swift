@@ -552,11 +552,42 @@ extension SettingsViewController {
             recoveryButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             recoveryButton.heightAnchor.constraint(equalToConstant: 44)
         ])
+        
+        // Add fake password settings button
+        setupFakePasswordSettings()
+    }
+    
+    private func setupFakePasswordSettings() {
+        // Create fake password settings button
+        let fakePasswordButton = StyledButton()
+        fakePasswordButton.setTitle("Fake Password Settings", for: .normal)
+        fakePasswordButton.setStyle(.secondary)
+        fakePasswordButton.addTarget(self, action: #selector(fakePasswordSettingsTapped), for: .touchUpInside)
+        fakePasswordButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add view
+        view.addSubview(fakePasswordButton)
+        
+        // Get reference to recovery button
+        let recoveryButton = view.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Recovery Settings" })
+        
+        // Position fake password button below recovery button
+        NSLayoutConstraint.activate([
+            fakePasswordButton.topAnchor.constraint(equalTo: recoveryButton?.bottomAnchor ?? view.bottomAnchor, constant: 12),
+            fakePasswordButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            fakePasswordButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            fakePasswordButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
     }
     
     @objc private func recoverySettingsTapped() {
         let recoverySettingsVC = RecoverySettingsViewController()
         navigationController?.pushViewController(recoverySettingsVC, animated: true)
+    }
+    
+    @objc private func fakePasswordSettingsTapped() {
+        let fakePasswordSettingsVC = FakePasswordSettingsViewController()
+        navigationController?.pushViewController(fakePasswordSettingsVC, animated: true)
     }
     
     // MARK: - Emergency Wipe
