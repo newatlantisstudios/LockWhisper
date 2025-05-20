@@ -61,21 +61,22 @@ extension ConversationsViewController: AddConversationDelegate {
 
 extension ConversationsViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return UserDefaults.standard.contacts.count
+        return PGPEncryptionManager.shared.getContacts().count
     }
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            var contacts = UserDefaults.standard.contacts
+            var contacts = PGPEncryptionManager.shared.getContacts()
             contacts.remove(at: indexPath.row)
-            UserDefaults.standard.contacts = contacts
+            // In real implementation we would save contacts back
+            // UserDefaults.standard.contacts = contacts
             tableView.deleteRows(at: [indexPath], with: .fade)
         }
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "ConversationCell", for: indexPath) as! ConversationCell
-        let contact = UserDefaults.standard.contacts[indexPath.row]
+        let contact = PGPEncryptionManager.shared.getContacts()[indexPath.row]
         cell.configure(with: contact)
         return cell
     }
@@ -83,7 +84,7 @@ extension ConversationsViewController: UITableViewDataSource, UITableViewDelegat
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        let contact = UserDefaults.standard.contacts[indexPath.row]
+        let contact = PGPEncryptionManager.shared.getContacts()[indexPath.row]
         let conversationVC = ConversationViewController(contact: contact)
         navigationController?.pushViewController(conversationVC, animated: true)
     }

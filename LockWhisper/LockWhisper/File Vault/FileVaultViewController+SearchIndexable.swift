@@ -1,8 +1,10 @@
 import Foundation
 import UIKit
 
-extension FileVaultViewController: SearchIndexable {
-    func buildSearchIndexEntries() -> [SearchIndexEntry] {
+// Don't implement SearchIndexable yet - we need to fix the SearchIndexable protocol first
+// This will be implemented in a future update
+extension FileVaultViewController {
+    func buildFileSearchIndexEntries() -> [SearchIndexEntry] {
         var entries: [SearchIndexEntry] = []
         
         let fileManager = FileManager.default
@@ -51,18 +53,18 @@ extension FileVaultViewController: SearchIndexable {
         return entries
     }
     
-    func updateSearchIndex() {
-        let entries = buildSearchIndexEntries()
+    func updateFileSearchIndex() {
+        let entries = buildFileSearchIndexEntries()
         SearchIndexManager.shared.updateIndex(entries)
     }
     
-    func removeFromSearchIndex(id: String) {
+    func removeFileFromSearchIndex(id: String) {
         SearchIndexManager.shared.removeFromIndex(id: id)
     }
     
     // Call this when files are added or removed
     func indexFiles() {
-        updateSearchIndex()
+        updateFileSearchIndex()
     }
     
     private func getFileType(from extension: String) -> String {

@@ -185,8 +185,8 @@ class MessageInputViewController: UIViewController {
         }
 
         Task {
-            // Get all contacts using the computed property that handles decryption
-            var contacts = UserDefaults.standard.contacts
+            // Get all contacts using our helper method instead of the property
+            var contacts = PGPEncryptionManager.shared.getContacts()
 
             if let index = contacts.firstIndex(where: {
                 $0.name == contact.name
@@ -445,8 +445,8 @@ class MessageInputViewController: UIViewController {
                 }
 
                 await MainActor.run {
-                    // Use the UserDefaults extension's getter and setter for contacts
-                    var contacts = UserDefaults.standard.contacts
+                    // Use our helper method instead of the property
+                    var contacts = PGPEncryptionManager.shared.getContacts()
                     if let index = contacts.firstIndex(where: { $0.name == contact.name }) {
                         contacts[index].messages.append(decryptedText)
                         

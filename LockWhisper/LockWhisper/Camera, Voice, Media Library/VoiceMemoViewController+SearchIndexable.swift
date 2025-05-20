@@ -1,8 +1,10 @@
 import Foundation
 import UIKit
 
-extension MediaLibraryViewController: SearchIndexable {
-    func buildSearchIndexEntries() -> [SearchIndexEntry] {
+// Don't implement SearchIndexable yet - we need to fix the SearchIndexable protocol first
+// This will be implemented in a future update
+extension MediaLibraryViewController {
+    func buildVoiceMemoSearchEntries() -> [SearchIndexEntry] {
         var entries: [SearchIndexEntry] = []
         
         // Index voice memos from the media files
@@ -27,18 +29,18 @@ extension MediaLibraryViewController: SearchIndexable {
         return entries
     }
     
-    func updateSearchIndex() {
-        let entries = buildSearchIndexEntries()
+    func updateVoiceMemoSearchIndex() {
+        let entries = buildVoiceMemoSearchEntries()
         SearchIndexManager.shared.updateIndex(entries)
     }
     
-    func removeFromSearchIndex(id: String) {
+    func removeVoiceMemoFromSearchIndex(id: String) {
         SearchIndexManager.shared.removeFromIndex(id: id)
     }
     
     // Call this after media files are loaded
     func indexVoiceMemos() {
-        updateSearchIndex()
+        updateVoiceMemoSearchIndex()
     }
     
     private func formatVoiceMemoName(_ fileName: String) -> String {

@@ -28,6 +28,23 @@ class NotepadViewController: UIViewController {
         
         // Index existing notes for search
         updateSearchIndex()
+        
+        // Register for favorites changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(favoritesDidChange),
+            name: .favoritesDidChange,
+            object: nil
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func favoritesDidChange() {
+        // Refresh the table to update favorite indicators
+        tableView.reloadData()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -93,7 +110,7 @@ extension NotepadViewController: UITableViewDataSource, UITableViewDelegate {
     // Configure each cell with the note's text.
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "NoteCell") ??
-            UITableViewCell(style: .default, reuseIdentifier: "NoteCell")
+            UITableViewCell(style: .subtitle, reuseIdentifier: "NoteCell")
         
         let note = notes[indexPath.row]
         let storedText = note.text ?? ""
@@ -113,6 +130,14 @@ extension NotepadViewController: UITableViewDataSource, UITableViewDelegate {
             cell.textLabel?.text = storedText
         }
         
+        // Show favorite status
+        if FavoritesManager.shared.isFavorite(id: note.objectID.uriRepresentation().absoluteString, moduleType: ModuleType.notes) {
+            cell.imageView?.image = UIImage(systemName: "star.fill")
+            cell.imageView?.tintColor = .systemYellow
+        } else {
+            cell.imageView?.image = nil
+        }
+        
         return cell
     }
     
@@ -121,8 +146,54 @@ extension NotepadViewController: UITableViewDataSource, UITableViewDelegate {
                    commit editingStyle: UITableViewCell.EditingStyle,
                    forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
+            let noteToDelete = notes[indexPath.row]
+            
+            // Remove from favorites if it was favorited
+            let noteId = noteToDelete.objectID.uriRepresentation().absoluteString
+            if FavoritesManager.shared.isFavorite(id: noteId, moduleType: ModuleType.notes) {
+                FavoritesManager.shared.removeFavorite(id: noteId, moduleType: ModuleType.notes)
+            }
+            
             deleteNote(at: indexPath)
         }
+    }
+    
+    // Add swipe actions for favorite toggle
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let note = notes[indexPath.row]
+        let noteId = note.objectID.uriRepresentation().absoluteString
+        
+        // Create favorite action
+        let isFavorite = FavoritesManager.shared.isFavorite(id: noteId, moduleType: ModuleType.notes)
+        
+        let actionTitle = isFavorite ? "Unfavorite" : "Favorite"
+        let actionIcon = isFavorite ? "star.slash" : "star"
+        
+        let favoriteAction = UIContextualAction(style: .normal, title: actionTitle) { (_, _, completion) in
+            // Toggle favorite status
+            if isFavorite {
+                FavoritesManager.shared.removeFavorite(id: noteId, moduleType: ModuleType.notes)
+            } else {
+                FavoritesManager.shared.addFavorite(item: note)
+            }
+            
+            // Update cell
+            self.tableView.reloadRows(at: [indexPath], with: .automatic)
+            
+            completion(true)
+        }
+        
+        favoriteAction.image = UIImage(systemName: actionIcon)
+        favoriteAction.backgroundColor = .systemYellow
+        
+        // Add delete action
+        let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { (_, _, completion) in
+            self.deleteNote(at: indexPath)
+            completion(true)
+        }
+        deleteAction.image = UIImage(systemName: "trash")
+        
+        return UISwipeActionsConfiguration(actions: [deleteAction, favoriteAction])
     }
     
     // When a cell is tapped, open the note in detail.

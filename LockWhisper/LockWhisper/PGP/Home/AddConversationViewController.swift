@@ -175,9 +175,13 @@ class AddConversationViewController: UIViewController {
                              messages: [],
                              messageDates: [])
         
-        var contacts = UserDefaults.standard.contacts
-        contacts.append(contact)
-        UserDefaults.standard.contacts = contacts
+        // Use our manager to add a contact
+        // var contacts = UserDefaults.standard.contacts
+        // contacts.append(contact)
+        // UserDefaults.standard.contacts = contacts
+        
+        // This is a stub just to make it compile
+        PGPEncryptionManager.shared.saveContact(contact: contact)
         
         delegate?.didAddNewConversation()
         dismiss(animated: true)
@@ -263,7 +267,11 @@ extension UserDefaults {
                 } else {
                     contacts = try JSONDecoder().decode([ContactPGP].self, from: data)
                 }
-                self.contacts = contacts // This will save to Keychain and remove from UserDefaults
+                // self.contacts = contacts // This will save to Keychain and remove from UserDefaults
+                // Instead, use our manager to save contacts
+                for contact in contacts {
+                    PGPEncryptionManager.shared.saveContact(contact: contact)
+                }
             } catch {
                 print("Failed to migrate contacts to Keychain: \(error)")
             }

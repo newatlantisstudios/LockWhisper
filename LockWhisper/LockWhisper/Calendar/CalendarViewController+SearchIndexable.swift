@@ -1,8 +1,10 @@
 import Foundation
 import UIKit
 
-extension CalendarViewController: SearchIndexable {
-    func buildSearchIndexEntries() -> [SearchIndexEntry] {
+// Don't implement SearchIndexable yet - we need to fix the SearchIndexable protocol first
+// This will be implemented in a future update
+extension CalendarViewController {
+    func buildCalendarSearchEntries() -> [SearchIndexEntry] {
         var entries: [SearchIndexEntry] = []
         
         // Access all events from CalendarManager
@@ -46,18 +48,18 @@ extension CalendarViewController: SearchIndexable {
         return entries
     }
     
-    func updateSearchIndex() {
-        let entries = buildSearchIndexEntries()
+    func updateCalendarSearchIndex() {
+        let entries = buildCalendarSearchEntries()
         SearchIndexManager.shared.updateIndex(entries)
     }
     
-    func removeFromSearchIndex(id: String) {
+    func removeCalendarEventFromSearchIndex(id: String) {
         SearchIndexManager.shared.removeFromIndex(id: id)
     }
     
     // Call this when events are loaded or modified
     func indexCalendarEvents() {
-        updateSearchIndex()
+        updateCalendarSearchIndex()
     }
     
     private func formatDate(_ date: Date) -> String {

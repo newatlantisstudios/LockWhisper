@@ -10,8 +10,9 @@ protocol ContactInfoDelegate: AnyObject {
 
 extension ConversationViewController: MessageInputDelegate {
     func messageWasAdded() {
-        // Get contacts using the computed property that handles decryption
-        let contacts = UserDefaults.standard.contacts
+        // Get contacts directly from a method instead of property to fix ambiguity
+        let pgpManager = PGPEncryptionManager.shared
+        let contacts = pgpManager.getContacts()
         
         // Find and update the contact
         if let updatedContact = contacts.first(where: { $0.name == contact.name }) {

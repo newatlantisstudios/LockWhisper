@@ -8,6 +8,9 @@ class NoteDetailViewController: UIViewController {
     var note: Note
     var noteIndex: Int
     
+    // Favorite button
+    var favoriteBarButton: UIBarButtonItem!
+    
     // A UITextView for editing.
     let textView: UITextView = {
         let tv = UITextView()
@@ -34,6 +37,7 @@ class NoteDetailViewController: UIViewController {
         title = "Note"
         view.backgroundColor = .systemBackground
         setupTextView()
+        setupFavoriteButton()
         
         let storedText = note.text ?? ""
         

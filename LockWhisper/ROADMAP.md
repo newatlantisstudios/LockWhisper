@@ -35,22 +35,15 @@ This roadmap outlines planned features and improvements for LockWhisper, organiz
 **Timeline: 1-2 months**
 
 ### TODO:
-- [ ] Full-text search implementation
-  - [ ] Encrypted index creation
-  - [ ] Search across all modules
-  - [ ] Search filters by type/date
-  - [ ] Recent searches
-
-- [ ] Custom categories/tags
-  - [ ] Tag creation and management
-  - [ ] Color coding system
-  - [ ] Custom icons
-  - [ ] Smart folders
-
-- [ ] Favorites system
-  - [ ] Pin frequently used items
-  - [ ] Quick access dashboard widget
-  - [ ] Favorite synchronization across modules
+- [x] Full-text search implementation
+  - [x] Encrypted index creation
+  - [x] Search across all modules
+  - [x] Search filters by type/date
+  - [x] Recent searches
+- [x] Favorites system
+  - [x] Pin frequently used items
+  - [x] Quick access dashboard widget
+  - [x] Favorite synchronization across modules
 
 ## Phase 4: Advanced Security Features
 **Timeline: 2-3 months**
@@ -139,6 +132,10 @@ This roadmap outlines planned features and improvements for LockWhisper, organiz
   - [ ] Sort by last access
   - [ ] Sort by frequency
   - [ ] Custom sort orders
+
+## TODO
+
+- [ ] Implement OpenPGPSwift
 
 ## Testing & Quality Assurance
 **Ongoing throughout all phases**

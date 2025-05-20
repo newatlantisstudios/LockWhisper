@@ -73,4 +73,7 @@ struct Constants {
     static let searchIndexDataKey = "searchIndexData"
     static let searchIndexLastUpdateKey = "searchIndexLastUpdate"
     static let maxRecentSearches = 10
+    
+    // Favorites
+    static let favoritesKey = "com.lockwhisper.favorites"
 }

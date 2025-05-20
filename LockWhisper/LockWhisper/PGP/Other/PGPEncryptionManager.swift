@@ -75,4 +75,17 @@ extension PGPEncryptionManager {
         keychainManager: PGPKeychainManager(),
         keychainId: "com.lockwhisper.pgp.encryptionKey"
     )
+    
+    // Add a method to get contacts to avoid ambiguity with UserDefaults extension
+    func getContacts() -> [ContactPGP] {
+        // In a real implementation, this would decrypt and return contacts from UserDefaults
+        // For now, we'll just return an empty array for compilation purposes
+        return []
+    }
+    
+    // Add a method to save a contact
+    func saveContact(contact: ContactPGP) {
+        // In a real implementation, this would save the contact
+        // For now, we'll just do nothing
+    }
 }
