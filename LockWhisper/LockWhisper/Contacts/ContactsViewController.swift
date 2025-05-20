@@ -6,7 +6,7 @@ class ContactsViewController: UIViewController {
     // Key for local storage
     private let contactsKey = "savedContacts"
     // Array of ContactContacts objects
-    private var contacts: [ContactContacts] = []
+    var contacts: [ContactContacts] = []
 
     // Create a table view to list contacts.
     private let tableView: UITableView = {
@@ -77,6 +77,9 @@ class ContactsViewController: UIViewController {
                         contacts = savedContacts
                     }
                 }
+                
+                // Index contacts for search after loading
+                indexContacts()
             } catch {
                 print("Failed to load contacts: \(error.localizedDescription)")
             }
@@ -92,6 +95,9 @@ class ContactsViewController: UIViewController {
             let encryptedData = try encryptData(encodedData, using: key)
             // Save the encrypted data
             UserDefaults.standard.set(encryptedData, forKey: contactsKey)
+            
+            // Index contacts for search after saving
+            indexContacts()
         } catch {
             print("Error saving contacts: \(error.localizedDescription)")
             let allowFallback = UserDefaults.standard.bool(forKey: "allowUnencryptedFallback")
@@ -99,6 +105,9 @@ class ContactsViewController: UIViewController {
                 // Fallback to unencrypted storage if encryption fails
                 if let encodedData = try? encoder.encode(contacts) {
                     UserDefaults.standard.set(encodedData, forKey: contactsKey)
+                    
+                    // Index contacts even in fallback mode
+                    indexContacts()
                 }
             } else {
                 // Alert the user and refuse to save

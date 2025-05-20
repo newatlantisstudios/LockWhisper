@@ -28,6 +28,9 @@ class FileVaultViewController: UIViewController {
         super.viewWillAppear(animated)
         loadFilesFromDocumentsDirectory()
         tableView.reloadData()
+        
+        // Index files for search
+        indexFiles()
     }
 
     // MARK: - Setup Methods

@@ -25,6 +25,9 @@ class NotepadViewController: UIViewController {
         setupTableView()
         setupNavigationBar()
         fetchNotes()
+        
+        // Index existing notes for search
+        updateSearchIndex()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -170,6 +173,9 @@ extension NotepadViewController: NewNoteDelegate {
             notes.append(note)
             let newIndexPath = IndexPath(row: notes.count - 1, section: 0)
             tableView.insertRows(at: [newIndexPath], with: .automatic)
+            
+            // Index the new note for search
+            indexNote(note)
         } catch {
             print("Failed to encrypt note: \(error.localizedDescription)")
             let allowFallback = UserDefaults.standard.bool(forKey: "allowUnencryptedFallback")
@@ -181,6 +187,9 @@ extension NotepadViewController: NewNoteDelegate {
                 notes.append(note)
                 let newIndexPath = IndexPath(row: notes.count - 1, section: 0)
                 tableView.insertRows(at: [newIndexPath], with: .automatic)
+                
+                // Index the new note for search
+                indexNote(note)
             } else {
                 // Alert the user and refuse to save
                 DispatchQueue.main.async {

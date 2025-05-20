@@ -65,4 +65,12 @@ struct Constants {
     static let fakePasswordAccount = "fakePasswordHash"
     static let realPasswordService = "com.lockwhisper.realpassword"
     static let realPasswordAccount = "realPasswordHash"
+    
+    // Search
+    static let searchIndexKeychainKey = "com.lockwhisper.search.indexKey"
+    static let searchService = "com.lockwhisper.search"
+    static let recentSearchesKey = "recentSearches"
+    static let searchIndexDataKey = "searchIndexData"
+    static let searchIndexLastUpdateKey = "searchIndexLastUpdate"
+    static let maxRecentSearches = 10
 }

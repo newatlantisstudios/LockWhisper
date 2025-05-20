@@ -56,6 +56,15 @@ class DashboardViewController: UIViewController {
             target: self,
             action: #selector(settingsTapped)
         )
+        
+        // Add search button
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "magnifyingglass"),
+            style: .plain,
+            target: self,
+            action: #selector(searchTapped)
+        )
+        
         title = "Home"
     }
     
@@ -81,6 +90,11 @@ class DashboardViewController: UIViewController {
     @objc private func settingsTapped() {
         let settingsVC = SettingsViewController()
         navigationController?.pushViewController(settingsVC, animated: true)
+    }
+    
+    @objc private func searchTapped() {
+        let searchVC = SearchViewController()
+        navigationController?.pushViewController(searchVC, animated: true)
     }
 }
 

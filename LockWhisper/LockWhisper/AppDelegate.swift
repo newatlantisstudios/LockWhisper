@@ -18,6 +18,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Perform data migration if updating from pre-V3 to V3
         performDataMigrationIfNeeded()
         
+        // Rebuild search index
+        SearchIndexCoordinator.shared.rebuildFullIndex()
+        
         // Rest of your app initialization
         return true
     }

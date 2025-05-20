@@ -54,6 +54,9 @@ class CalendarViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
+        // Index calendar events for search
+        indexCalendarEvents()
         fetchEvents(for: selectedDate)
     }
     

@@ -5,7 +5,7 @@ class MediaLibraryViewController: UIViewController {
     
     // MARK: - Properties
     
-    private var mediaFiles = [MediaFile]()
+    var mediaFiles = [MediaFile]()
     private let mediaManager = MediaManager.shared
     
     struct MediaFile {
@@ -156,6 +156,9 @@ class MediaLibraryViewController: UIViewController {
             DispatchQueue.main.async {
                 self.updateEmptyState(self.mediaFiles.isEmpty)
                 self.collectionView.reloadData()
+                
+                // Index voice memos for search
+                self.indexVoiceMemos()
             }
         } catch {
             print("Error loading media files: \(error)")

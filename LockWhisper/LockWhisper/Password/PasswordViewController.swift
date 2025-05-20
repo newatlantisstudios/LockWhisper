@@ -283,6 +283,9 @@ class PasswordViewController: UIViewController {
                         passwords = savedPasswords
                     }
                 }
+                
+                // Index passwords for search after loading
+                indexPasswords()
             } catch {
                 print("Failed to load passwords: \(error.localizedDescription)")
             }
@@ -299,6 +302,9 @@ class PasswordViewController: UIViewController {
             // Save to appropriate UserDefaults key
             let actualKey = FakePasswordManager.shared.getUserDefaultsKey(for: passwordsKey)
             UserDefaults.standard.set(encryptedData, forKey: actualKey)
+            
+            // Index passwords for search after saving
+            indexPasswords()
         } catch {
             print("Error saving passwords: \(error.localizedDescription)")
             let allowFallback = UserDefaults.standard.bool(forKey: "allowUnencryptedFallback")
@@ -306,6 +312,9 @@ class PasswordViewController: UIViewController {
                 // Fallback to unencrypted storage if encryption fails
                 if let encodedData = try? encoder.encode(passwords) {
                     UserDefaults.standard.set(encodedData, forKey: passwordsKey)
+                    
+                    // Index passwords even in fallback mode
+                    indexPasswords()
                 }
             } else {
                 // Alert the user and refuse to save

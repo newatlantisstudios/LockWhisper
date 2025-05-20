@@ -1,10 +1,14 @@
 import UIKit
 import CoreData
+import Foundation
 
 class TODOViewController: UIViewController {
     
     // Array to store fetched TODOItems objects
     var todoItems: [TODOItem] = []
+    
+    // Property to store the item to highlight when the view appears
+    var highlightItem: TODOItem?
     
     // Table view to display TODOs
     let tableView: UITableView = {
@@ -21,6 +25,30 @@ class TODOViewController: UIViewController {
         setupTableView()
         setupNavigationBar()
         fetchTODOItems()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        // If we have a highlighted item, scroll to it and briefly highlight the cell
+        if let highlightItem = self.highlightItem, let index = todoItems.firstIndex(where: { $0.objectID == highlightItem.objectID }) {
+            let indexPath = IndexPath(row: index, section: 0)
+            tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
+            
+            // Highlight the cell briefly
+            if let cell = tableView.cellForRow(at: indexPath) {
+                UIView.animate(withDuration: 0.3, animations: {
+                    cell.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.3)
+                }) { _ in
+                    UIView.animate(withDuration: 0.3) {
+                        cell.backgroundColor = .systemBackground
+                    }
+                }
+            }
+            
+            // Clear the highlight item after using it
+            self.highlightItem = nil
+        }
     }
     
     private func setupTableView() {
@@ -63,6 +91,11 @@ class TODOViewController: UIViewController {
             todoItems.append(todoItem)
             let newIndexPath = IndexPath(row: todoItems.count - 1, section: 0)
             tableView.insertRows(at: [newIndexPath], with: .automatic)
+            
+            // Update search index
+            if let self = self as? SearchIndexable {
+                self.updateSearchIndex()
+            }
         } catch {
             print("Failed to encrypt TODO title: \(error.localizedDescription)")
             let todoItem = TODOItem(context: context)
@@ -73,6 +106,11 @@ class TODOViewController: UIViewController {
             todoItems.append(todoItem)
             let newIndexPath = IndexPath(row: todoItems.count - 1, section: 0)
             tableView.insertRows(at: [newIndexPath], with: .automatic)
+            
+            // Update search index
+            if let self = self as? SearchIndexable {
+                self.updateSearchIndex()
+            }
         }
     }
     
@@ -93,10 +131,17 @@ class TODOViewController: UIViewController {
     // Delete TODO item from Core Data
     func deleteTODOItem(at indexPath: IndexPath) {
         let todoToDelete = todoItems[indexPath.row]
+        let todoID = todoToDelete.objectID.uriRepresentation().absoluteString
+        
         CoreDataManager.shared.context.delete(todoToDelete)
         CoreDataManager.shared.saveContext()
         todoItems.remove(at: indexPath.row)
         tableView.deleteRows(at: [indexPath], with: .automatic)
+        
+        // Update search index
+        if let self = self as? SearchIndexable {
+            self.removeFromSearchIndex(id: todoID)
+        }
     }
     
     // Toggle completion status of a TODO item
@@ -172,3 +217,5 @@ extension TODOViewController: NewTODODelegate {
         dismiss(animated: true)
     }
 }
+
+//
