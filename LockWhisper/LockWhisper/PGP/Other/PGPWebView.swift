@@ -6,6 +6,11 @@ class PGPWebView {
     private var isScriptLoaded = false
     private var scriptLoadedContinuation: CheckedContinuation<Void, Error>?
     
+    // Key caching for performance
+    private var cachedPublicKeys: [String: String] = [:]
+    private var cachedPrivateKeys: [String: String] = [:]
+    private let cacheQueue = DispatchQueue(label: "pgp.cache", attributes: .concurrent)
+    
     init() {
         setupJSContext()
     }
@@ -153,78 +158,115 @@ class PGPWebView {
     
     private func setupEncryptionFunctions() {
         let functions = """
-            async function encryptMessage(message, publicKey) {
-                        console.log("[encryptMessage] called with message.length:", message.length);
-                        console.log("[encryptMessage] called with publicKey.length:", publicKey.length);
-                        try {
-                            console.log("[encryptMessage] reading public key...");
-                            const publicKeyObj = await openpgp.readKey({ armoredKey: publicKey });
-                            console.log("[encryptMessage] public key read successfully");
-
-                            console.log("[encryptMessage] creating message...");
-                            const pgpMessage = await openpgp.createMessage({ text: message });
-                            console.log("[encryptMessage] created pgpMessage successfully");
-
-                            console.log("[encryptMessage] encrypting...");
-                            const encrypted = await openpgp.encrypt({
-                                message: pgpMessage,
-                                encryptionKeys: [publicKeyObj],
-                                format: 'armored'
-                            });
-                            console.log("[encryptMessage] encryption complete. encrypted length:", encrypted.length);
-
-                            // store result globally
-                            window.lastEncryptedMessage = encrypted;
-                            console.log("[encryptMessage] saved to window.lastEncryptedMessage");
-                            return "success";
-                        } catch (error) {
-                            console.error("[encryptMessage] error:", error);
-                            return "error: " + error;
-                        }
-                    }
+            // Key cache for performance
+            window.keyCache = {
+                publicKeys: new Map(),
+                privateKeys: new Map()
+            };
             
-            function getEncryptedMessage() {
-                        const result = window.lastEncryptedMessage || '';
-                        console.log("[getEncryptedMessage] returning:", result.length, "chars");
-                        window.lastEncryptedMessage = null;
-                        return result;
-                    }
-                    
+            // Promise-based callback system
+            window.pendingOperations = new Map();
+            window.operationCounter = 0;
             
-            async function decryptMessage(encryptedText, privateKeyArmored, passphrase = '') {
-                if (!encryptedText || !privateKeyArmored) {
-                    throw new Error('Missing required parameters');
+            function createOperation() {
+                const id = ++window.operationCounter;
+                let resolve, reject;
+                const promise = new Promise((res, rej) => {
+                    resolve = res;
+                    reject = rej;
+                });
+                window.pendingOperations.set(id, { resolve, reject });
+                return { id, promise };
+            }
+            
+            function resolveOperation(id, result) {
+                const op = window.pendingOperations.get(id);
+                if (op) {
+                    op.resolve(result);
+                    window.pendingOperations.delete(id);
                 }
-                
+            }
+            
+            function rejectOperation(id, error) {
+                const op = window.pendingOperations.get(id);
+                if (op) {
+                    op.reject(error);
+                    window.pendingOperations.delete(id);
+                }
+            }
+            
+            async function getCachedPublicKey(publicKey) {
+                const hash = btoa(publicKey.slice(0, 100)); // Simple hash
+                if (window.keyCache.publicKeys.has(hash)) {
+                    return window.keyCache.publicKeys.get(hash);
+                }
+                const keyObj = await openpgp.readKey({ armoredKey: publicKey });
+                window.keyCache.publicKeys.set(hash, keyObj);
+                return keyObj;
+            }
+            
+            async function getCachedPrivateKey(privateKey, passphrase = '') {
+                const hash = btoa(privateKey.slice(0, 100) + passphrase); // Include passphrase in hash
+                if (window.keyCache.privateKeys.has(hash)) {
+                    return window.keyCache.privateKeys.get(hash);
+                }
+                const privateKeyObj = await openpgp.readPrivateKey({ armoredKey: privateKey });
+                const decryptedKey = passphrase ? 
+                    await openpgp.decryptKey({ privateKey: privateKeyObj, passphrase }) : privateKeyObj;
+                window.keyCache.privateKeys.set(hash, decryptedKey);
+                return decryptedKey;
+            }
+            
+            async function encryptMessage(message, publicKey, operationId) {
                 try {
-                    const privateKey = await openpgp.readPrivateKey({ armoredKey: privateKeyArmored });
-                    const decryptedPrivateKey = passphrase ? 
-                        await openpgp.decryptKey({ privateKey, passphrase }) : privateKey;
+                    const publicKeyObj = await getCachedPublicKey(publicKey);
+                    const pgpMessage = await openpgp.createMessage({ text: message });
+                    const encrypted = await openpgp.encrypt({
+                        message: pgpMessage,
+                        encryptionKeys: [publicKeyObj],
+                        format: 'armored'
+                    });
                     
+                    resolveOperation(operationId, { success: true, encrypted });
+                } catch (error) {
+                    rejectOperation(operationId, { success: false, error: error.toString() });
+                }
+            }
+            
+            async function decryptMessage(encryptedText, privateKeyArmored, passphrase = '', operationId) {
+                try {
+                    const decryptedKey = await getCachedPrivateKey(privateKeyArmored, passphrase);
                     const message = await openpgp.readMessage({ armoredMessage: encryptedText });
                     const { data: decrypted } = await openpgp.decrypt({
                         message,
-                        decryptionKeys: decryptedPrivateKey
+                        decryptionKeys: decryptedKey,
+                        format: 'utf8'
                     });
                     
-                    return JSON.stringify({ 
+                    resolveOperation(operationId, { 
                         success: true, 
                         decrypted: decrypted.toString() 
                     });
                 } catch (error) {
-                    throw error;
+                    const needsPassphrase = error.message.includes('passphrase') || 
+                                          error.message.includes('decrypt');
+                    rejectOperation(operationId, { 
+                        success: false, 
+                        error: error.toString(),
+                        needsPassphrase 
+                    });
                 }
             }
             
-            async function isKeyEncrypted(privateKeyArmored) {
+            async function isKeyEncrypted(privateKeyArmored, operationId) {
                 try {
                     const privateKey = await openpgp.readPrivateKey({ armoredKey: privateKeyArmored });
-                    return JSON.stringify({
+                    resolveOperation(operationId, {
                         success: true,
                         isEncrypted: privateKey.isEncrypted
                     });
                 } catch (error) {
-                    return JSON.stringify({ success: false, error: error.toString() });
+                    rejectOperation(operationId, { success: false, error: error.toString() });
                 }
             }
         """
@@ -317,38 +359,39 @@ class PGPWebView {
     func encrypt(_ message: String, withPublicKey key: String) async throws -> String {
         try await waitForScriptLoad()
         
-        context?.evaluateScript("""
-        async function runEncryption(message, publicKey) {
+        // Generate unique operation ID
+        let operationId = UUID().uuidString
+        
+        // Set up callback for when operation completes
+        var resultContinuation: CheckedContinuation<String, Error>?
+        let callbackName = "encryptCallback_\(operationId.replacingOccurrences(of: "-", with: "_"))"
+        
+        context?.setObject(unsafeBitCast({ (success: Bool, result: String) -> Void in
+            if success {
+                resultContinuation?.resume(returning: result)
+            } else {
+                resultContinuation?.resume(throwing: PGPError.encryptionFailed(result))
+            }
+        } as @convention(block) (Bool, String) -> Void, to: AnyObject.self), forKeyedSubscript: callbackName as NSString)
+        
+        // Start encryption with callback
+        let script = """
+        (async () => {
             try {
-                const publicKeyObj = await openpgp.readKey({ armoredKey: publicKey });
-                const pgpMessage = await openpgp.createMessage({ text: message });
-                const encrypted = await openpgp.encrypt({
-                    message: pgpMessage,
-                    encryptionKeys: [publicKeyObj],
-                    format: 'armored'
-                });
-                window.encryptedResult = encrypted;
+                await encryptMessage('\(message.escapingJavaScript())', '\(key.escapingJavaScript())', '\(operationId)');
+                const result = await window.pendingOperations.get('\(operationId)').promise;
+                \(callbackName)(result.success, result.encrypted || result.error);
             } catch (error) {
-                window.encryptedResult = 'error:' + error.message;
+                \(callbackName)(false, error.toString());
             }
-        }
-        runEncryption('\(message.escapingJavaScript())', '\(key.escapingJavaScript())');
-        """)
+        })();
+        """
         
-        // Wait for result with timeout
-        for _ in 0..<20 {  // Increased timeout to 2 seconds total
-            try await Task.sleep(nanoseconds: 100_000_000)  // 100ms
-            if let result = context?.evaluateScript("window.encryptedResult")?.toString(),
-               !result.isEmpty {
-                context?.evaluateScript("window.encryptedResult = null")
-                if result.starts(with: "error:") {
-                    throw PGPError.encryptionFailed(result)
-                }
-                return result
-            }
-        }
+        context?.evaluateScript(script)
         
-        throw PGPError.encryptionFailed("Encryption timeout")
+        return try await withCheckedThrowingContinuation { continuation in
+            resultContinuation = continuation
+        }
     }
     
     func decrypt(_ message: String, withPrivateKey key: String, passphrase: String? = nil) async throws -> String {
