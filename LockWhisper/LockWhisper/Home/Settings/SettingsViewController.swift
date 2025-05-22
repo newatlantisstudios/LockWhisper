@@ -20,6 +20,18 @@ class SettingsViewController: UIViewController {
     
     // MARK: - UI Elements
     
+    private let scrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        return scrollView
+    }()
+    
+    private let contentView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
     // A switch to toggle biometric authentication.
     private let biometricSwitch: UISwitch = {
        let biometricSwitch = UISwitch()
@@ -96,7 +108,7 @@ class SettingsViewController: UIViewController {
         view.backgroundColor = .systemBackground
         title = "Settings"
         setupNavigationBar()
-        setupLockWhisperLabel()
+        setupScrollView()
         setupBiometricSwitch()
         setupMigrationButtons() // Add migration buttons
     }
@@ -104,25 +116,37 @@ class SettingsViewController: UIViewController {
     // MARK: - Setup Methods
     
     private func setupNavigationBar() {
-        // Create the tip jar button using the image named "tipJar"
-        let tipJarImage = UIImage(named: "tipJar")
-        let tipJarButton = UIBarButtonItem(image: tipJarImage, style: .plain, target: self, action: #selector(tipJarTapped))
-        navigationItem.rightBarButtonItem = tipJarButton
+        // Create the tip jar button using the image named "tipJar" with smaller size
+        if let originalImage = UIImage(named: "tipJar") {
+            let targetSize = CGSize(width: 32, height: 32)
+            let tipJarImage = resizeImage(image: originalImage, targetSize: targetSize)
+            let tipJarButton = UIBarButtonItem(image: tipJarImage, style: .plain, target: self, action: #selector(tipJarTapped))
+            navigationItem.rightBarButtonItem = tipJarButton
+        }
     }
     
-    private func setupLockWhisperLabel() {
-        let label = UILabel()
-        label.text = "LockWhisper V3"
-        label.textAlignment = .center
-        label.font = UIFont.systemFont(ofSize: 20, weight: .bold)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(label)
+    private func resizeImage(image: UIImage, targetSize: CGSize) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+    }
+    
+    private func setupScrollView() {
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
         
-        // Constrain the label to the top of the safe area with some padding.
         NSLayoutConstraint.activate([
-            label.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
         ])
     }
     
@@ -132,17 +156,17 @@ class SettingsViewController: UIViewController {
         biometricLabel.font = UIFont.systemFont(ofSize: 16)
         biometricLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        // Add both the label and the switch to the view.
-        view.addSubview(biometricLabel)
-        view.addSubview(biometricSwitch)
+        // Add both the label and the switch to the content view.
+        contentView.addSubview(biometricLabel)
+        contentView.addSubview(biometricSwitch)
 
         // Add target to update the stored preference when the switch toggles.
         biometricSwitch.addTarget(self, action: #selector(biometricSwitchToggled(_:)), for: .valueChanged)
         
-        // Place the switch and label below the LockWhisper label.
+        // Place the switch and label at the top of the content view.
         NSLayoutConstraint.activate([
-            biometricLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60),
-            biometricLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            biometricLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            biometricLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             
             biometricSwitch.centerYAnchor.constraint(equalTo: biometricLabel.centerYAnchor),
             biometricSwitch.leadingAnchor.constraint(equalTo: biometricLabel.trailingAnchor, constant: 16)
@@ -153,12 +177,12 @@ class SettingsViewController: UIViewController {
         fallbackLabel.text = "Allow Unencrypted Fallback (Not Recommended)"
         fallbackLabel.font = UIFont.systemFont(ofSize: 16)
         fallbackLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(fallbackLabel)
-        view.addSubview(fallbackSwitch)
+        contentView.addSubview(fallbackLabel)
+        contentView.addSubview(fallbackSwitch)
         fallbackSwitch.addTarget(self, action: #selector(fallbackSwitchToggled(_:)), for: .valueChanged)
         NSLayoutConstraint.activate([
             fallbackLabel.topAnchor.constraint(equalTo: biometricLabel.bottomAnchor, constant: 24),
-            fallbackLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            fallbackLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             fallbackSwitch.centerYAnchor.constraint(equalTo: fallbackLabel.centerYAnchor),
             fallbackSwitch.leadingAnchor.constraint(equalTo: fallbackLabel.trailingAnchor, constant: 16)
         ])
@@ -168,18 +192,18 @@ class SettingsViewController: UIViewController {
         intervalLabel.text = "Re-authentication Interval"
         intervalLabel.font = UIFont.systemFont(ofSize: 16)
         intervalLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(intervalLabel)
-        view.addSubview(biometricIntervalControl)
+        contentView.addSubview(intervalLabel)
+        contentView.addSubview(biometricIntervalControl)
         biometricIntervalControl.addTarget(self, action: #selector(biometricIntervalChanged(_:)), for: .valueChanged)
         
         NSLayoutConstraint.activate([
             intervalLabel.topAnchor.constraint(equalTo: fallbackLabel.bottomAnchor, constant: 24),
-            intervalLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            intervalLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            intervalLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            intervalLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             
             biometricIntervalControl.topAnchor.constraint(equalTo: intervalLabel.bottomAnchor, constant: 12),
-            biometricIntervalControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            biometricIntervalControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+            biometricIntervalControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            biometricIntervalControl.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
         ])
         
         // Initially hide interval control if biometric is disabled
@@ -230,14 +254,14 @@ class SettingsViewController: UIViewController {
         autoDestructLabel.font = UIFont.systemFont(ofSize: 16)
         autoDestructLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        view.addSubview(autoDestructLabel)
-        view.addSubview(autoDestructSwitch)
+        contentView.addSubview(autoDestructLabel)
+        contentView.addSubview(autoDestructSwitch)
         
         autoDestructSwitch.addTarget(self, action: #selector(autoDestructSwitchToggled(_:)), for: .valueChanged)
         
         NSLayoutConstraint.activate([
             autoDestructLabel.topAnchor.constraint(equalTo: biometricIntervalControl.bottomAnchor, constant: 24),
-            autoDestructLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            autoDestructLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             
             autoDestructSwitch.centerYAnchor.constraint(equalTo: autoDestructLabel.centerYAnchor),
             autoDestructSwitch.leadingAnchor.constraint(equalTo: autoDestructLabel.trailingAnchor, constant: 16)
@@ -246,7 +270,7 @@ class SettingsViewController: UIViewController {
         // Add attempt limit controls
         let attemptLimitContainer = UIView()
         attemptLimitContainer.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(attemptLimitContainer)
+        contentView.addSubview(attemptLimitContainer)
         
         let attemptLimitDescLabel = UILabel()
         attemptLimitDescLabel.text = "Failed Attempts Limit:"
@@ -261,8 +285,8 @@ class SettingsViewController: UIViewController {
         
         NSLayoutConstraint.activate([
             attemptLimitContainer.topAnchor.constraint(equalTo: autoDestructLabel.bottomAnchor, constant: 16),
-            attemptLimitContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            attemptLimitContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            attemptLimitContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            attemptLimitContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             attemptLimitContainer.heightAnchor.constraint(equalToConstant: 44),
             
             attemptLimitDescLabel.centerYAnchor.constraint(equalTo: attemptLimitContainer.centerYAnchor),
@@ -296,15 +320,15 @@ class SettingsViewController: UIViewController {
         cancelButton?.addTarget(self, action: #selector(cancelTimerTapped), for: .touchUpInside)
         
         if let timerLabel = timerLabel, let cancelButton = cancelButton {
-            view.addSubview(timerLabel)
-            view.addSubview(cancelButton)
+            contentView.addSubview(timerLabel)
+            contentView.addSubview(cancelButton)
             
             NSLayoutConstraint.activate([
                 timerLabel.topAnchor.constraint(equalTo: attemptLimitContainer.bottomAnchor, constant: 8),
-                timerLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+                timerLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
                 
                 cancelButton.topAnchor.constraint(equalTo: attemptLimitContainer.bottomAnchor, constant: 8),
-                cancelButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+                cancelButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
             ])
         }
     }
@@ -467,25 +491,25 @@ extension SettingsViewController {
         importButton.addTarget(self, action: #selector(importDataTapped), for: .touchUpInside)
         importButton.translatesAutoresizingMaskIntoConstraints = false
         
-        // Add views to the main view
-        view.addSubview(migrationLabel)
-        view.addSubview(exportButton)
-        view.addSubview(importButton)
+        // Add views to the content view
+        contentView.addSubview(migrationLabel)
+        contentView.addSubview(exportButton)
+        contentView.addSubview(importButton)
         
         // Position the migration section below the biometric interval control
         NSLayoutConstraint.activate([
             migrationLabel.topAnchor.constraint(equalTo: biometricIntervalControl.bottomAnchor, constant: 120),
-            migrationLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            migrationLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            migrationLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            migrationLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             
             exportButton.topAnchor.constraint(equalTo: migrationLabel.bottomAnchor, constant: 16),
-            exportButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            exportButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            exportButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            exportButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             exportButton.heightAnchor.constraint(equalToConstant: 44),
             
             importButton.topAnchor.constraint(equalTo: exportButton.bottomAnchor, constant: 12),
-            importButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            importButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            importButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            importButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             importButton.heightAnchor.constraint(equalToConstant: 44)
         ])
         
@@ -509,21 +533,21 @@ extension SettingsViewController {
         emergencyWipeButton.translatesAutoresizingMaskIntoConstraints = false
         
         // Add views
-        view.addSubview(emergencyLabel)
-        view.addSubview(emergencyWipeButton)
+        contentView.addSubview(emergencyLabel)
+        contentView.addSubview(emergencyWipeButton)
         
         // Get reference to import button
-        let importButton = view.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Import App Data" })
+        let importButton = contentView.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Import App Data" })
         
         // Position emergency section below import button
         NSLayoutConstraint.activate([
-            emergencyLabel.topAnchor.constraint(equalTo: importButton?.bottomAnchor ?? view.bottomAnchor, constant: 40),
-            emergencyLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            emergencyLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            emergencyLabel.topAnchor.constraint(equalTo: importButton?.bottomAnchor ?? contentView.bottomAnchor, constant: 40),
+            emergencyLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            emergencyLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             
             emergencyWipeButton.topAnchor.constraint(equalTo: emergencyLabel.bottomAnchor, constant: 16),
-            emergencyWipeButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            emergencyWipeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            emergencyWipeButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            emergencyWipeButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             emergencyWipeButton.heightAnchor.constraint(equalToConstant: 44)
         ])
         
@@ -540,16 +564,16 @@ extension SettingsViewController {
         recoveryButton.translatesAutoresizingMaskIntoConstraints = false
         
         // Add view
-        view.addSubview(recoveryButton)
+        contentView.addSubview(recoveryButton)
         
         // Get reference to emergency wipe button
-        let emergencyWipeButton = view.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Emergency Data Wipe" })
+        let emergencyWipeButton = contentView.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Emergency Data Wipe" })
         
         // Position recovery button below emergency wipe button
         NSLayoutConstraint.activate([
-            recoveryButton.topAnchor.constraint(equalTo: emergencyWipeButton?.bottomAnchor ?? view.bottomAnchor, constant: 12),
-            recoveryButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            recoveryButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            recoveryButton.topAnchor.constraint(equalTo: emergencyWipeButton?.bottomAnchor ?? contentView.bottomAnchor, constant: 12),
+            recoveryButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            recoveryButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             recoveryButton.heightAnchor.constraint(equalToConstant: 44)
         ])
         
@@ -566,17 +590,20 @@ extension SettingsViewController {
         fakePasswordButton.translatesAutoresizingMaskIntoConstraints = false
         
         // Add view
-        view.addSubview(fakePasswordButton)
+        contentView.addSubview(fakePasswordButton)
         
         // Get reference to recovery button
-        let recoveryButton = view.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Recovery Settings" })
+        let recoveryButton = contentView.subviews.first(where: { ($0 as? StyledButton)?.titleLabel?.text == "Recovery Settings" })
         
-        // Position fake password button below recovery button
+        // Position fake password button below recovery button and set content view bottom constraint
         NSLayoutConstraint.activate([
-            fakePasswordButton.topAnchor.constraint(equalTo: recoveryButton?.bottomAnchor ?? view.bottomAnchor, constant: 12),
-            fakePasswordButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            fakePasswordButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            fakePasswordButton.heightAnchor.constraint(equalToConstant: 44)
+            fakePasswordButton.topAnchor.constraint(equalTo: recoveryButton?.bottomAnchor ?? contentView.bottomAnchor, constant: 12),
+            fakePasswordButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            fakePasswordButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            fakePasswordButton.heightAnchor.constraint(equalToConstant: 44),
+            
+            // Set content view bottom constraint to the last element
+            contentView.bottomAnchor.constraint(greaterThanOrEqualTo: fakePasswordButton.bottomAnchor, constant: 20)
         ])
     }
     

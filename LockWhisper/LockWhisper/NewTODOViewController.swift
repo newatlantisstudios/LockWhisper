@@ -44,6 +44,7 @@ class NewTODOViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        enableKeyboardHandling()
         setupUI()
         saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
         cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)

@@ -1,4 +1,5 @@
 import UIKit
+import ObjectiveC
 
 class NoteDetailViewController: UIViewController {
     
@@ -36,6 +37,7 @@ class NoteDetailViewController: UIViewController {
         super.viewDidLoad()
         title = "Note"
         view.backgroundColor = .systemBackground
+        enableKeyboardHandling()
         setupTextView()
         setupFavoriteButton()
         

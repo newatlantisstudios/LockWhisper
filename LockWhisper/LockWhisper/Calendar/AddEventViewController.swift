@@ -1,4 +1,5 @@
 import UIKit
+import ObjectiveC
 
 protocol AddEventDelegate: AnyObject {
     func didAddEvent()
@@ -143,6 +144,7 @@ class AddEventViewController: UIViewController, UITextFieldDelegate {
         
         title = "Add Event"
         view.backgroundColor = .systemBackground
+        enableKeyboardHandling()
         
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel,

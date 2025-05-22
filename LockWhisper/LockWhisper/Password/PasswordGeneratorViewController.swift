@@ -109,6 +109,7 @@ class PasswordGeneratorViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         title = "Password Generator"
+        enableKeyboardHandling()
         setupUI()
         setupActions()
         configureInitialState()

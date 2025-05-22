@@ -17,6 +17,7 @@ class NotesViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Notes for \(contact.name)"
+        enableKeyboardHandling()
 
         setupUI()
         // Load existing notes with decryption

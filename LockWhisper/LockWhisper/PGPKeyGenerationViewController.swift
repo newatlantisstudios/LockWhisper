@@ -62,6 +62,7 @@ class PGPKeyGenerationViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        enableKeyboardHandling()
         setupUI()
         generateButton.addTarget(self, action: #selector(generateTapped), for: .touchUpInside)
         cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)

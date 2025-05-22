@@ -19,6 +19,7 @@ class NewNoteViewController: UIViewController {
         super.viewDidLoad()
         title = "New Note"
         view.backgroundColor = .systemBackground
+        enableKeyboardHandling()
         setupTextView()
     }
     

@@ -1,4 +1,5 @@
 import UIKit
+import ObjectiveC
 
 // Protocol to inform the delegate (typically ContactsViewController) about updates.
 protocol ContactDetailDelegate: AnyObject {
@@ -90,6 +91,7 @@ class ContactDetailViewController: UIViewController {
         super.viewDidLoad()
         title = "Edit Contact"
         view.backgroundColor = .systemBackground
+        enableKeyboardHandling()
         
         setupNavigationBar()
         setupUI()

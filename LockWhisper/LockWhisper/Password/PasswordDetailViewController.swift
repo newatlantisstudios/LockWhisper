@@ -1,4 +1,5 @@
 import UIKit
+import ObjectiveC
 
 // MARK: - PasswordDetailViewControllerDelegate Protocol
 
@@ -59,6 +60,7 @@ class PasswordDetailViewController: UIViewController {
         view.backgroundColor = .systemBackground
         // Title will reflect if we are adding or editing.
         title = passwordEntry == nil ? "Add Password" : "Edit Password"
+        enableKeyboardHandling()
         setupNavigationBar()
         setupUI()
         // Pre-fill fields if editing.

@@ -24,6 +24,7 @@ class FileAddViewController: UIViewController {
          super.viewDidLoad()
          title = "Add File"
          view.backgroundColor = .systemBackground
+         enableKeyboardHandling()
          setupNavigationBar()
          setupViews()
          fileTitleTextField.text = initialFileName

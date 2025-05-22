@@ -13,6 +13,7 @@ class RecoveryViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardHandling()
         setupUI()
     }
     

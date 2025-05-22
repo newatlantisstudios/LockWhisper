@@ -61,6 +61,7 @@ class RemoteWipeConfigViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        enableKeyboardHandling()
         setupUI()
         setupActions()
         loadConfiguration()

@@ -91,6 +91,7 @@ class AddContactViewController: UIViewController {
        super.viewDidLoad()
        title = "Add Contact"
        view.backgroundColor = .systemBackground
+       enableKeyboardHandling()
        
        setupNavigationBar()
        setupUI()

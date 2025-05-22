@@ -26,6 +26,7 @@ class FakePasswordSettingsViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardHandling()
         setupUI()
         setupConstraints()
         updateUI()

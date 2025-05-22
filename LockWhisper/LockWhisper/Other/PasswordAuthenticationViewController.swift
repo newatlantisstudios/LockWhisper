@@ -22,6 +22,7 @@ class PasswordAuthenticationViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardHandling()
         setupUI()
         setupConstraints()
     }

@@ -1,4 +1,5 @@
 import UIKit
+import ObjectiveC
 
 class MessageInputViewController: UIViewController {
 
@@ -66,6 +67,7 @@ class MessageInputViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        enableKeyboardHandling()
         setupUI()
         setupActions()
     }

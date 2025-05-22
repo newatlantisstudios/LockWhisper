@@ -83,6 +83,7 @@ class AddConversationViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardHandling()
         setupUI()
         setupActions()
     }
